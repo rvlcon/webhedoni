@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Geoportal Supabase PostGIS</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <!-- Tipografías -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      /* Paleta grises-azules (chalk & deep blue) */
+      --panel-grad: linear-gradient(135deg, #0A2540 0%, #1E2A36 45%, #7A7D7F 100%);
+      --text-main: #FFFFFF;
+      --text-subtle: #E6EAF0;
+      --accent: #60A5FA;           /* azul claro */
+      --primary: #2563EB;          /* azul principal */
+      --primary-hover: #1D4ED8;
+      --ghost-bg: #FFFFFF26;       /* blanco translúcido */
+      --ghost-hover: #FFFFFF40;
+      --chip-bg: #FFFFFF22;
+      --danger: #EF4444;
+      --danger-hover: #DC2626;
+      --ok-bg: #16A34A;
+      --ok-bg-muted: #16A34A33;
+      --err-bg: #DC2626;
+      --err-bg-muted: #DC262633;
+    }
+
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Inter',system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+    #panel{
+      position:fixed;left:0;top:0;width:340px;height:100vh;
+      background:var(--panel-grad); color:var(--text-main);
+      padding:20px;overflow-y:auto;box-shadow:4px 0 15px rgba(0,0,0,.2);z-index:1000
+    }
+    #mapa{position:fixed;left:340px;top:0;right:0;height:100vh}
+
+    h1{font-size:24px;margin-bottom:10px;text-shadow:2px 2px 4px rgba(0,0,0,.35)}
+    .subtitle{font-size:12px;color:var(--text-subtle);margin-bottom:18px}
+
+    .seccion{
+      background:rgba(255,255,255,.08);backdrop-filter:blur(10px);
+      padding:15px;border-radius:12px;margin-bottom:15px;border:1px solid rgba(255,255,255,.15)
+    }
+    .seccion h3{font-size:14px;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;color:#EAF2FF}
+
+    .capa-item{
+      background:rgba(255,255,255,.08);padding:12px;margin-bottom:8px;border-radius:10px;
+      cursor:pointer;transition:.3s;border:1px solid rgba(255,255,255,.15)
+    }
+    .capa-item:hover{background:rgba(255,255,255,.18);transform:translateX(5px)}
+    .capa-item.active{border-color:var(--accent);box-shadow:0 0 0 2px #60A5FA33 inset;background:rgba(255,255,255,.14)}
+    .capa-nombre{font-weight:700;font-size:13px}
+    .capa-info{font-size:11px;color:var(--text-subtle);margin-top:4px}
+
+    .boton{
+      width:100%;padding:12px;margin-top:10px;background:var(--primary);
+      color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:700;transition:.2s;font-size:13px
+    }
+    .boton:hover{background:var(--primary-hover);transform:translateY(-1px)}
+    .boton:active{transform:translateY(0)}
+    .boton-peligro{background:var(--danger)}
+    .boton-peligro:hover{background:var(--danger-hover)}
+    .boton-secundario{background:#0F2A49;border:1px solid #25435F}
+    .boton-secundario:hover{background:#143253}
+    .boton-ghost{background:var(--ghost-bg);border:1px solid rgba(255,255,255,.25)}
+    .boton-ghost:hover{background:var(--ghost-hover)}
+
+    .form-group{margin-bottom:12px}
+    .form-group label{display:block;font-size:11px;margin-bottom:5px;font-weight:700;color:#EAF2FF}
+    .form-group input,.form-group select,.form-group textarea{
+      width:100%;padding:9px;border:none;border-radius:8px;font-size:12px;
+      color:#0F172A; background:#F4F7FA
+    }
+    .form-group textarea{resize:vertical;min-height:60px}
+    #formularioNuevo{display:none}
+
+    .status{padding:10px;border-radius:10px;margin-top:15px;font-size:12px;text-align:center;white-space:pre-wrap}
+    .status.success{background:var(--ok-bg-muted);border:1px solid var(--ok-bg);color:#F0FFF4}
+    .status.error{background:var(--err-bg-muted);border:1px solid var(--err-bg);color:#FFF1F2}
+
+    .loading{text-align:center;padding:15px;background:rgba(255,255,255,.08);border-radius:10px;margin:10px 0;color:#EAF2FF}
+    .spinner{border:3px solid rgba(255,255,255,.25);border-top:3px solid #fff;border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite;margin:10px auto}
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    .helper-text{font-size:10px;color:var(--text-subtle);margin-top:3px}
+    .leaflet-popup-content{font-size:12px}
+    .leaflet-popup-content strong{color:var(--primary)}
+    .crosshair{cursor:crosshair!important}
+
+    #buscador-colonias { display:flex; gap:6px; margin-top:8px; }
+    #buscador-colonias input { flex:1; padding:9px; border:none; border-radius:8px; background:#F4F7FA; font-size:12px; color:#0F172A; }
+    #buscador-colonias button { padding:9px 10px; border:1px solid rgba(255,255,255,.25); border-radius:8px; background:var(--ghost-bg); color:#fff; cursor:pointer; font-weight:700; }
+    #buscador-colonias button:hover { background:var(--ghost-hover); }
+
+    .flash-outline { animation: flash 1.2s ease-in-out 2; }
+    @keyframes flash { 0%{opacity:1} 50%{opacity:.25} 100%{opacity:1} }
+
+    .stepper { border:1px dashed rgba(255,255,255,.35); border-radius:12px; padding:10px; }
+    .step { display:none; }
+    .step.active { display:block; }
+    .step small { display:block; color:#C9D7E8; margin-bottom:6px; font-family:'JetBrains Mono',ui-monospace,Menlo,monospace; }
+    .stepper-controls { display:flex; gap:8px; margin-top:8px; }
+    .stepper-controls button { flex:1; padding:9px; border:1px solid rgba(255,255,255,.25); border-radius:8px; background:var(--ghost-bg); color:#fff; cursor:pointer; font-weight:700; }
+    .stepper-controls button:hover { background:var(--ghost-hover); }
+
+    .badge { display:inline-block; padding:3px 10px; font-size:11px; border-radius:999px; background:var(--chip-bg); color:#EAF2FF; margin-bottom:8px; }
+  </style>
+</head>
+<body>
+  <div id="panel">
+    <h1>🗺️ Geoportal Analítico de Precios de la Vivienda, CDMX</h1>
+    <div class="subtitle">Datos geoespaciales en tiempo real con modelo de econometría espacial</div>
+
+    <div class="seccion">
+      <h3>📊 Capas Disponibles</h3>
+
+      <div class="capa-item" onclick="toggleCapa('cdmx')">
+        <div class="capa-nombre">🏘️ Colonias CDMX</div>
+        <div class="capa-info">Polígonos</div>
+      </div>
+
+      <div id="buscador-colonias">
+        <input id="input-colonia" list="lista-colonias" placeholder="Buscar colonia…"/>
+        <datalist id="lista-colonias"></datalist>
+        <button onclick="buscarColonia()">Buscar</button>
+      </div>
+
+      <div class="capa-item" onclick="toggleCapa('est_metro_sinZ')">
+        <div class="capa-nombre">🚇 Estaciones Metro</div>
+        <div class="capa-info">Puntos • (carga desde Supabase)</div>
+      </div>
+
+      <div class="capa-item" onclick="toggleCapa('Desa_cdmx_ejemplo')">
+        <div class="capa-nombre">🏢 Desarrollos Inmobiliarios (originales)</div>
+        <div class="capa-info">Puntos</div>
+      </div>
+
+      <div class="capa-item" onclick="toggleCapa('nuevos_desarrollos')">
+        <div class="capa-nombre">🆕 Nuevos desarrollos (alta y consulta)</div>
+        <div class="capa-info">Puntos</div>
+      </div>
+    </div>
+
+    <div class="seccion">
+      <h3>🎮 Controles</h3>
+      <button class="boton" onclick="cargarTodasCapas()">Cargar Todas las Capas</button>
+      <button class="boton boton-peligro" onclick="limpiarMapa()">Limpiar Mapa</button>
+      <button class="boton boton-secundario" onclick="toggleFormulario()">➕ Nuevo Desarrollo</button>
+      <button id="btn-puntero" class="boton boton-ghost" onclick="togglePuntero()">📍 Activar puntero</button>
+      <button class="boton boton-ghost" onclick="autocompletarOSM()">🧭 Autocompletar desde OSM</button>
+      <button class="boton boton-ghost" onclick="autocompletarDesdeOriginales()">🏢 Precio m² cercano</button>
+      <button class="boton boton-ghost" onclick="probarPermisos()">🔐 Probar permisos</button>
+      <div class="helper-text">
+        • Puntero: click en el mapa para colocar/arrastrar y llenar Lat/Lon.<br/>
+        • OSM: completa dirección, alcaldía y colonia automáticamente.<br/>
+        • Precio m² cercano: toma el desarrollo original más cercano.
+      </div>
+    </div>
+
+    <!-- === Formulario de nuevos desarrollos (sin cambios funcionales) === -->
+    <div id="formularioNuevo" class="seccion">
+      <h3>➕ Nuevo Desarrollo</h3>
+      <form onsubmit="guardarDesarrollo(event)">
+        <!-- Campos base -->
+        <div class="form-group">
+          <label>Nombre del Proyecto *</label>
+          <input type="text" id="nombre" required>
+        </div>
+        <div class="form-group">
+          <label>Desarrollador</label>
+          <input type="text" id="desarrollador" placeholder="(opcional)">
+        </div>
+        <div class="form-group">
+          <label>Tipo de Proyecto</label>
+          <select id="tipo">
+            <option value="Residencial">Residencial</option>
+            <option value="Comercial">Comercial</option>
+            <option value="Mixto">Mixto</option>
+            <option value="Industrial">Industrial</option>
+            <option value="Oficinas">Oficinas</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Número de Unidades</label>
+          <input type="number" id="unidades" min="1">
+        </div>
+        <div class="form-group">
+          <label>Latitud *</label>
+          <input type="number" id="latitud" step="0.000001" required>
+          <div class="helper-text">Ej: 19.4326</div>
+        </div>
+        <div class="form-group">
+          <label>Longitud *</label>
+          <input type="number" id="longitud" step="0.000001" required>
+          <div class="helper-text">Ej: -99.1332</div>
+        </div>
+
+        <!-- Dirección / alcaldía / colonia -->
+        <div class="form-group">
+          <label>Dirección</label>
+          <input type="text" id="direccion" placeholder="Se llena con OSM (editable)">
+        </div>
+        <div class="form-group">
+          <label>Alcaldía</label>
+          <input type="text" id="alcaldia" placeholder="Se llena con OSM (editable)">
+        </div>
+        <div class="form-group">
+          <label>Colonia</label>
+          <input type="text" id="colonia" placeholder="Se llena con OSM (editable)">
+        </div>
+
+        <div class="form-group">
+          <label>Precio m² (estimado)</label>
+          <input type="number" id="precio_m2" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>Descripción</label>
+          <textarea id="descripcion" placeholder="Se autocompleta con dirección OSM si lo deseas"></textarea>
+        </div>
+
+        <!-- Stepper de campos adicionales -->
+        <div class="stepper">
+          <span class="badge">Campos adicionales (uno a uno)</span>
+
+          <div class="step active" data-key="precio_total">
+            <small>1/20</small>
+            <div class="form-group">
+              <label>Precio total</label>
+              <input type="number" id="precio_total" step="0.01" placeholder="MXN">
+            </div>
+          </div>
+
+          <div class="step" data-key="area_total">
+            <small>2/20</small>
+            <div class="form-group">
+              <label>Área total (m²)</label>
+              <input type="number" id="area_total" step="0.01">
+            </div>
+          </div>
+
+          <div class="step" data-key="area_terreno">
+            <small>3/20</small>
+            <div class="form-group">
+              <label>Área de terreno (m²)</label>
+              <input type="number" id="area_terreno" step="0.01">
+            </div>
+          </div>
+
+          <div class="step" data-key="num_recamaras">
+            <small>4/20</small>
+            <div class="form-group">
+              <label>Número de recámaras</label>
+              <input type="number" id="num_recamaras" min="0" step="1">
+            </div>
+          </div>
+
+          <div class="step" data-key="num_banos">
+            <small>5/20</small>
+            <div class="form-group">
+              <label>Número de baños</label>
+              <input type="number" id="num_banos" min="0" step="1">
+            </div>
+          </div>
+
+          <div class="step" data-key="num_cajores_estacionamiento">
+            <small>6/20</small>
+            <div class="form-group">
+              <label>Número de cajones de estacionamiento</label>
+              <input type="number" id="num_cajores_estacionamiento" min="0" step="1" placeholder="(en BD: num_cajores_estacionamiento)">
+            </div>
+          </div>
+
+          <div class="step" data-key="niveles">
+            <small>7/20</small>
+            <div class="form-group">
+              <label>Niveles</label>
+              <input type="number" id="niveles" min="0" step="1">
+            </div>
+          </div>
+
+          <div class="step" data-key="antiguedad">
+            <small>8/20</small>
+            <div class="form-group">
+              <label>Antigüedad (años)</label>
+              <input type="number" id="antiguedad" min="0" step="1">
+            </div>
+          </div>
+
+          <div class="step" data-key="estado_conservación">
+            <small>9/20</small>
+            <div class="form-group">
+              <label>Estado de conservación</label>
+              <input type="text" id="estado_conservación" placeholder="Ej: Excelente, Bueno, Regular">
+            </div>
+          </div>
+
+          <div class="step" data-key="tiene_areas_verdes">
+            <small>10/20</small>
+            <div class="form-group">
+              <label><input type="checkbox" id="tiene_areas_verdes"> Tiene áreas verdes</label>
+            </div>
+          </div>
+
+          <div class="step" data-key="tiene_seguridad_24h">
+            <small>11/20</small>
+            <div class="form-group">
+              <label><input type="checkbox" id="tiene_seguridad_24h"> Tiene seguridad 24h</label>
+            </div>
+          </div>
+
+          <div class="step" data-key="tiene_gimnacio">
+            <small>12/20</small>
+            <div class="form-group">
+              <label><input type="checkbox" id="tiene_gimnacio"> Tiene gimnasio</label>
+            </div>
+          </div>
+
+          <div class="step" data-key="tiene_alberca">
+            <small>13/20</small>
+            <div class="form-group">
+              <label><input type="checkbox" id="tiene_alberca"> Tiene alberca</label>
+            </div>
+          </div>
+
+          <div class="step" data-key="tiene_registro">
+            <small>14/20</small>
+            <div class="form-group">
+              <label><input type="checkbox" id="tiene_registro"> Tiene registro</label>
+            </div>
+          </div>
+
+          <div class="step" data-key="_estacionamiento_visitantes">
+            <small>15/20</small>
+            <div class="form-group">
+              <label><input type="checkbox" id="_estacionamiento_visitantes"> Estacionamiento para visitantes</label>
+            </div>
+          </div>
+
+          <div class="step" data-key="unidades_totales">
+            <small>16/20</small>
+            <div class="form-group">
+              <label>Unidades totales</label>
+              <input type="number" id="unidades_totales" min="0" step="1">
+            </div>
+          </div>
+
+          <div class="step" data-key="unidades_disponibles">
+            <small>17/20</small>
+            <div class="form-group">
+              <label>Unidades disponibles</label>
+              <input type="number" id="unidades_disponibles" min="0" step="1">
+            </div>
+          </div>
+
+          <div class="step" data-key="fecha_registro_extra">
+            <small>18/20</small>
+            <div class="form-group">
+              <label>Fecha de registro (extra)</label>
+              <input type="date" id="fecha_registro_extra">
+              <div class="helper-text">Si la BD ya guarda fecha_registro automática, puedes dejarlo vacío.</div>
+            </div>
+          </div>
+
+          <div class="step" data-key="fecha_actualización">
+            <small>19/20</small>
+            <div class="form-group">
+              <label>Fecha de actualización</label>
+              <input type="date" id="fecha_actualización">
+            </div>
+          </div>
+
+          <div class="step" data-key="comentarios_finales">
+            <small>20/20</small>
+            <div class="form-group">
+              <label>Notas / Comentarios finales</label>
+              <textarea id="comentarios_finales" placeholder="Opcional"></textarea>
+            </div>
+          </div>
+
+          <div class="stepper-controls">
+            <button type="button" onclick="stepAnterior()">⟵ Anterior</button>
+            <button type="button" onclick="stepSiguiente()">Siguiente ⟶</button>
+          </div>
+        </div>
+
+        <button type="submit" class="boton">💾 Guardar Desarrollo</button>
+        <button type="button" class="boton boton-peligro" onclick="toggleFormulario()">❌ Cancelar</button>
+      </form>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+  <div id="mapa"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const SUPABASE_URL = 'https://anyzwlksikreczclzkxc.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFueXp3bGtzaWtyZWN6Y2x6a3hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MTY0NTcsImV4cCI6MjA3NTA5MjQ1N30.sMs4-59Q7ajHLQHJYxVXAhwODlkSREfUNYiQ8BswMjQ';
+
+    const mapa = L.map('mapa').setView([19.4326, -99.1332], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(mapa);
+
+    const capasActivas = {};
+    let puntero = null;
+    let punteroActivo = false;
+    let indiceColonias = [];
+
+    /* ---------- UI helpers ---------- */
+    function mostrarStatus(msg,tipo){
+      const s=document.getElementById('status');
+      if(tipo==='loading'){
+        s.innerHTML=`<div class="loading"><div class="spinner"></div>${msg}</div>`;
+      } else {
+        s.innerHTML=`<div class="status ${tipo}">${msg}</div>`;
+        if(tipo!=='error'){ setTimeout(()=>{ s.innerHTML=''; },3000); }
+      }
+    }
+    function setCursorCrosshair(on){ document.getElementById('mapa').classList.toggle('crosshair', !!on); }
+    function setBtnPuntero(on){ document.getElementById('btn-puntero').textContent = on ? '📍 Desactivar puntero' : '📍 Activar puntero'; }
+
+    function toggleFormulario(){
+      const form=document.getElementById('formularioNuevo');
+      if (form.style.display==='none'||form.style.display===''){
+        form.style.display='block';
+        document.getElementById('nombre').focus();
+      } else {
+        form.style.display='none';
+        document.querySelector('#formularioNuevo form').reset();
+        resetStepper();
+      }
+    }
+    function togglePuntero(){
+      punteroActivo = !punteroActivo;
+      setCursorCrosshair(punteroActivo);
+      setBtnPuntero(punteroActivo);
+      mostrarStatus(punteroActivo ? '📍 Modo puntero ACTIVADO: haz click en el mapa' : '📍 Modo puntero DESACTIVADO', 'success');
+      if (punteroActivo && document.getElementById('formularioNuevo').style.display!=='block') toggleFormulario();
+    }
+    mapa.on('click', (e)=>{
+      if(!punteroActivo) return;
+      const {lat,lng}=e.latlng;
+      if(!puntero){
+        puntero=L.marker([lat,lng],{draggable:true}).addTo(mapa);
+        puntero.on('dragend',()=>{
+          const ll=puntero.getLatLng();
+          document.getElementById('latitud').value=ll.lat.toFixed(6);
+          document.getElementById('longitud').value=ll.lng.toFixed(6);
+          mostrarStatus('📍 Puntero movido (coordenadas actualizadas)', 'success');
+        });
+      } else {
+        puntero.setLatLng([lat,lng]);
+      }
+      document.getElementById('latitud').value=lat.toFixed(6);
+      document.getElementById('longitud').value=lng.toFixed(6);
+      mostrarStatus('📍 Coordenadas capturadas', 'success');
+    });
+
+    /* ---------- OSM y precio cercano ---------- */
+    async function autocompletarOSM(){
+      const lat=parseFloat(document.getElementById('latitud').value);
+      const lon=parseFloat(document.getElementById('longitud').value);
+      if(isNaN(lat)||isNaN(lon)){ mostrarStatus('❌ Primero captura coordenadas (puntero o manual)', 'error'); return; }
+      try{
+        mostrarStatus('🧭 Consultando OpenStreetMap…','loading');
+        const url=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=es&addressdetails=1`;
+        const r=await fetch(url,{headers:{'User-Agent':'RVL-Geoportal/1.0'}});
+        const j=await r.json();
+        const addr=j.address||{};
+
+        const via = [addr.road, addr.house_number].filter(Boolean).join(' ');
+        const direccion = via || j.display_name || '';
+        const alcaldia = addr.city_district || addr.borough || addr.municipality || addr.county || addr.town || addr.city || '';
+        const colonia  = addr.suburb || addr.neighbourhood || addr.quarter || '';
+
+        document.getElementById('direccion').value = direccion;
+        document.getElementById('alcaldia').value  = alcaldia;
+        document.getElementById('colonia').value   = colonia;
+
+        const partes=[
+          j.display_name,
+          via ? `Calle y número: ${via}` : null,
+          colonia ? `Colonia: ${colonia}` : null,
+          alcaldia ? `Alcaldía: ${alcaldia}` : null,
+          addr.postcode ? `CP: ${addr.postcode}`:null
+        ].filter(Boolean).join('\n');
+        const $desc=document.getElementById('descripcion');
+        $desc.value = ($desc.value?($desc.value+'\n\n'):'') + '— Dirección OSM —\n' + partes;
+
+        mostrarStatus('✅ Dirección, alcaldía y colonia agregadas desde OSM','success');
+      }catch(e){ console.error(e); mostrarStatus('❌ No se pudo obtener la dirección OSM','error'); }
+    }
+
+    async function autocompletarDesdeOriginales(radioM=1000){
+      const lat=parseFloat(document.getElementById('latitud').value);
+      const lon=parseFloat(document.getElementById('longitud').value);
+      if(isNaN(lat)||isNaN(lon)){ mostrarStatus('❌ Primero captura coordenadas', 'error'); return; }
+      if(!capasActivas['Desa_cdmx_ejemplo']) await cargarCapa('Desa_cdmx_ejemplo');
+
+      const capa=capasActivas['Desa_cdmx_ejemplo'];
+      if(!capa){ mostrarStatus('❌ No se pudo cargar la capa de desarrollos originales', 'error'); return; }
+
+      let minD=Infinity, best=null;
+      capa.eachLayer(layer=>{
+        const f=layer.feature;
+        if(!f||!f.geometry||f.geometry.type!=='Point') return;
+        const [x,y]=f.geometry.coordinates;
+        const d = mapa.distance([lat,lon],[y,x]);
+        if(d < minD){ minD=d; best=f; }
+      });
+
+      if(!best || minD>radioM){
+        mostrarStatus(`ℹ️ No hay desarrollos originales dentro de ${radioM} m`, 'error');
+        return;
+      }
+
+      const p=best.properties||{};
+      const precio = p['precio m2'] ?? p['precio_m2'] ?? p['precio_m2_prom'] ?? p['precio_m2_promedio'] ?? null;
+      if(precio!=null){ document.getElementById('precio_m2').value = Number(precio); }
+
+      const resumen = [
+        `Nearest ID: ${p.id ?? '(s/d)'}`,
+        p.nombre ? `Nombre: ${p.nombre}` : null,
+        precio!=null ? `Precio m²: ${precio}` : 'Precio m²: N/D',
+        `Distancia: ${(minD).toFixed(1)} m`
+      ].filter(Boolean).join('\n');
+
+      const $desc=document.getElementById('descripcion');
+      $desc.value = ($desc.value?($desc.value+'\n\n'):'') + '— Desarrollo original cercano —\n' + resumen;
+      mostrarStatus('✅ Precio m² y datos cercanos añadidos', 'success');
+    }
+
+    /* ---------- REST helpers ---------- */
+    async function apiGet(path){
+      const r = await fetch(`${SUPABASE_URL}${path}`,{
+        headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+      });
+      return r;
+    }
+    async function apiPost(path, body){
+      const r = await fetch(`${SUPABASE_URL}${path}`,{
+        method:'POST',
+        headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json', Prefer:'return=representation' },
+        body: JSON.stringify(body)
+      });
+      return r;
+    }
+    async function apiDelete(path){
+      const r = await fetch(`${SUPABASE_URL}${path}`,{
+        method:'DELETE',
+        headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}` }
+      });
+      return r;
+    }
+
+    /* ---------- Guardar ---------- */
+    async function guardarDesarrollo(e){
+      e.preventDefault();
+
+      const nombre = document.getElementById('nombre').value;
+      const lat = parseFloat(document.getElementById('latitud').value);
+      const lon = parseFloat(document.getElementById('longitud').value);
+      if(isNaN(lat)||isNaN(lon)){ mostrarStatus('❌ Coordenadas inválidas','error'); return; }
+
+      mostrarStatus('🔎 Verificando columnas de la tabla…','loading');
+      let columnas = null;
+      try{
+        const r = await apiGet('/rest/v1/nuevos_desarrollos?select=*&limit=1');
+        if(!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+        const arr = await r.json();
+        columnas = new Set(arr.length? Object.keys(arr[0]) : []);
+      }catch(e){
+        console.warn('No fue posible inferir columnas:', e);
+        columnas = null;
+      }
+
+      const num = (v)=> (v === '' || v === null || v === undefined || isNaN(Number(v))) ? null : Number(v);
+      const txt = (v)=> (v && String(v).trim()!=='' ? String(v).trim() : null);
+      const bool = (id)=> !!document.getElementById(id)?.checked;
+
+      const fecha_registro_extra = document.getElementById('fecha_registro_extra')?.value || null;
+      const fecha_actualizacion = document.getElementById('fecha_actualización')?.value || null;
+
+      const payloadFull = {
+        nombre,
+        desarrollador: txt(document.getElementById('desarrollador').value),
+        tipo: txt(document.getElementById('tipo').value),
+        unidades: num(document.getElementById('unidades').value),
+        descripcion: txt(document.getElementById('descripcion').value),
+        precio_m2: num(document.getElementById('precio_m2').value),
+        latitud: lat,
+        longitud: lon,
+        geom: `POINT(${lon} ${lat})`,
+        fecha_registro: new Date().toISOString(),
+
+        // Dirección / alcaldía / colonia
+        direccion: txt(document.getElementById('direccion').value),
+        alcaldia: txt(document.getElementById('alcaldia').value),
+        colonia: txt(document.getElementById('colonia').value),
+
+        // Adicionales
+        precio_total: num(document.getElementById('precio_total').value),
+        area_total: num(document.getElementById('area_total').value),
+        area_terreno: num(document.getElementById('area_terreno').value),
+        num_recamaras: num(document.getElementById('num_recamaras').value),
+        num_banos: num(document.getElementById('num_banos').value),
+        num_cajores_estacionamiento: num(document.getElementById('num_cajores_estacionamiento').value),
+        niveles: num(document.getElementById('niveles').value),
+        antiguedad: num(document.getElementById('antiguedad').value),
+        estado_conservación: txt(document.getElementById('estado_conservación').value),
+        tiene_areas_verdes: bool('tiene_areas_verdes'),
+        tiene_seguridad_24h: bool('tiene_seguridad_24h'),
+        tiene_gimnacio: bool('tiene_gimnacio'),
+        tiene_alberca: bool('tiene_alberca'),
+        tiene_registro: bool('tiene_registro'),
+        _estacionamiento_visitantes: bool('_estacionamiento_visitantes'),
+        unidades_totales: num(document.getElementById('unidades_totales').value),
+        unidades_disponibles: num(document.getElementById('unidades_disponibles').value),
+        fecha_actualización: fecha_actualizacion || null,
+      };
+      if (fecha_registro_extra) payloadFull.fecha_registro = new Date(fecha_registro_extra).toISOString();
+
+      let payload = {...payloadFull};
+      if(columnas){
+        payload = Object.fromEntries(Object.entries(payloadFull).filter(([k,_])=> columnas.has(k)));
+      }
+
+      mostrarStatus('💾 Guardando desarrollo…','loading');
+      let intentos = 5;
+      while(intentos-- > 0){
+        const r = await apiPost('/rest/v1/nuevos_desarrollos', payload);
+        if(r.ok){
+          const chk = await apiGet(`/rest/v1/nuevos_desarrollos?select=*&nombre=eq.${encodeURIComponent(nombre)}&latitud=eq.${lat}&longitud=eq.${lon}`);
+          if(chk.ok){
+            const arr = await chk.json();
+            if(arr.length === 0){
+              mostrarStatus(`⚠️ Insert realizado pero no se puede leer (RLS: falta SELECT para 'anon').`, 'error');
+            }else{
+              mostrarStatus('✅ Desarrollo guardado y verificado en BD','success');
+            }
+          }else{
+            mostrarStatus(`⚠️ Insert ok pero falla verificación SELECT (${chk.status}).`, 'error');
+          }
+
+          if(capasActivas['nuevos_desarrollos']){
+            mapa.removeLayer(capasActivas['nuevos_desarrollos']);
+            delete capasActivas['nuevos_desarrollos'];
+          }
+          await cargarCapa('nuevos_desarrollos');
+          mapa.setView([lat,lon], 16);
+          document.querySelector('#formularioNuevo form').reset();
+          resetStepper();
+          toggleFormulario();
+          return;
+        } else {
+          const txtErr = await r.text();
+          const miss = txtErr.match(/Could not find the '([^']+)' column/i);
+          if(r.status===400 && miss && (miss[1] in payload)){
+            delete payload[miss[1]];
+            console.warn('Columna inexistente, eliminando y reintentando:', miss[1]);
+            continue;
+          }
+          mostrarStatus(`❌ Error al guardar (${r.status}):\n${txtErr}`, 'error');
+          return;
+        }
+      }
+    }
+
+    /* ---------- Diagnóstico de permisos ---------- */
+    async function probarPermisos(){
+      try{
+        mostrarStatus('🔐 Probando permisos (SELECT, INSERT, DELETE)…','loading');
+        let r = await apiGet('/rest/v1/nuevos_desarrollos?select=id&limit=1');
+        const canSelect = r.ok;
+        const marker = `TEST-${Date.now()}`;
+        r = await apiPost('/rest/v1/nuevos_desarrollos', { nombre: marker });
+        const canInsert = r.ok;
+        let canDelete = false;
+        if(canInsert){
+          const del = await apiDelete(`/rest/v1/nuevos_desarrollos?nombre=eq.${encodeURIComponent(marker)}`);
+          canDelete = del.ok;
+        }
+        const msg = [`SELECT: ${canSelect?'OK':'NO'}`,`INSERT: ${canInsert?'OK':'NO'}`,`DELETE: ${canDelete?'OK':'NO'}`].join(' · ');
+        mostrarStatus(`🔐 Permisos → ${msg}`, canInsert&&canSelect ? 'success' : 'error');
+      }catch(e){ console.error(e); mostrarStatus(`❌ Error en prueba de permisos:\n${e.message}`, 'error'); }
+    }
+
+    /* ---------- Capas, buscador y utilidades ---------- */
+    async function cargarCapa(nombreTabla){
+      mostrarStatus(`Cargando ${nombreTabla}...`,'loading');
+      async function fetchTabla(tabla){
+        let all=[]; let offset=0; const limit=1000; let more=true;
+        while(more){
+          const url=`${SUPABASE_URL}/rest/v1/${encodeURIComponent(tabla)}?select=*&order=id&limit=${limit}&offset=${offset}`;
+          const r=await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json','Prefer':'count=exact'}});
+          if(!r.ok){ const t=await r.text(); throw new Error(`${tabla} :: REST ${r.status} ::\n${t}`); }
+          const chunk=await r.json();
+          all=all.concat(chunk);
+          offset+=limit;
+          if(chunk.length<limit) more=false;
+        }
+        return all;
+      }
+      try{
+        let datos=[];
+        try{ datos=await fetchTabla(nombreTabla); }
+        catch(e1){ datos=await fetchTabla(`public.${nombreTabla}`); }
+        if(!datos.length){ mostrarStatus(`${nombreTabla}: sin datos`,'error'); return; }
+        agregarCapaAlMapa(nombreTabla, datos);
+        mostrarStatus(`✅ ${nombreTabla} cargada (${datos.length} registros)`,'success');
+        if(nombreTabla==='cdmx'){ construirIndiceColonias(); }
+      }catch(e){
+        console.error(e);
+        mostrarStatus(`❌ Error al cargar ${nombreTabla}:\n${e.message}`,'error');
+      }
+    }
+    function agregarCapaAlMapa(nombreTabla, datos){
+      if(capasActivas[nombreTabla]){ mapa.removeLayer(capasActivas[nombreTabla]); }
+
+      const toPointGeom = (item)=>{
+        if (typeof item.latitud === 'number' && typeof item.longitud === 'number') {
+          return { type:'Point', coordinates:[item.longitud, item.latitud] };
+        }
+        if (typeof item.lat === 'number' && typeof item.lng === 'number') {
+          return { type:'Point', coordinates:[item.lng, item.lat] };
+        }
+        if (typeof item.lat === 'number' && typeof item.lon === 'number') {
+          return { type:'Point', coordinates:[item.lon, item.lat] };
+        }
+        return null;
+      };
+
+      const geojson={
+        type:'FeatureCollection',
+        features: datos.map(item=>{
+          let geometry=null;
+          if(item.geom){
+            if(typeof item.geom==='string') geometry=parseGeometry(item.geom);
+            else if(item.geom.type) geometry=item.geom;
+          } else {
+            geometry = toPointGeom(item);
+          }
+          const props={...item}; delete props.geom;
+          return {type:'Feature',properties:props,geometry};
+        }).filter(f=>f.geometry)
+      };
+
+      /* Colores de capas (azules/grises con buen contraste) */
+      const estilos={
+        'cdmx':{color:'#60A5FA',weight:2,fillOpacity:.25,fillColor:'#60A5FA'},
+        'est_metro_sinZ':{radius:6,fillColor:'#93C5FD',color:'#0F172A',weight:2,opacity:1,fillOpacity:.9},
+        'Desa_cdmx_ejemplo':{radius:8,fillColor:'#38BDF8',color:'#0F172A',weight:2,opacity:1,fillOpacity:.95},
+        'nuevos_desarrollos':{radius:9,fillColor:'#E0F2FE',color:'#0A2540',weight:2,opacity:1,fillOpacity:.95}
+      };
+
+      const capa=L.geoJSON(geojson,{
+        style:estilos[nombreTabla],
+        pointToLayer:(f,latlng)=> L.circleMarker(latlng, estilos[nombreTabla] || {radius:6}),
+        onEachFeature:(f,l)=>{
+          let html=`<div style="max-width:260px;"><h4 style="margin:0 0 8px;color:#1E3A8A">${nombreTabla}</h4>`;
+          const p=f.properties; let c=0;
+          for(const k in p){
+            if(p[k]==null) continue;
+            let v=p[k]; if(typeof v==='string' && v.length>120) v=v.substring(0,120)+'...';
+            html+=`<strong>${k}:</strong> ${v}<br/>`;
+            if(++c>=12) break;
+          }
+          html+='</div>'; l.bindPopup(html);
+        }
+      }).addTo(mapa);
+
+      capasActivas[nombreTabla]=capa;
+
+      document.querySelectorAll('.capa-item').forEach(it=>{
+        if(it.textContent.includes(nombreTabla) ||
+           (nombreTabla==='cdmx' && it.textContent.includes('Colonias')) ||
+           (nombreTabla==='est_metro_sinZ' && it.textContent.includes('Metro')) ||
+           (nombreTabla==='Desa_cdmx_ejemplo' && it.textContent.includes('Desarrollos')) ||
+           (nombreTabla==='nuevos_desarrollos' && it.textContent.includes('Nuevos'))){
+          it.classList.add('active');
+        }
+      });
+
+      if(capa.getBounds().isValid()) mapa.fitBounds(capa.getBounds());
+    }
+    function parseGeometry(geomStr){
+      try{
+        if(!geomStr || typeof geomStr!=='string') return null;
+        let s=geomStr.trim();
+        if(s.startsWith('{')||s.startsWith('[')){
+          try{ const gj=JSON.parse(s); if(gj && gj.type) return gj; }catch{}
+          return null;
+        }
+        const sr=/^SRID=\d+;/i; if(sr.test(s)) s=s.replace(sr,'');
+        let m=s.match(/^POINT\s*\(([-\d.]+)\s+([-\d.]+)\)$/i);
+        if(m) return {type:'Point',coordinates:[parseFloat(m[1]),parseFloat(m[2])]};
+        m=s.match(/^POLYGON\s*\(\((.+)\)\)$/is);
+        if(m){
+          const rings=m[1].split('),(').map(r=>r.split(',').map(p=>p.trim().split(/\s+/).map(Number)));
+          return {type:'Polygon',coordinates:rings};
+        }
+        m=s.match(/^MULTIPOLYGON\s*\(\(\((.+)\)\)\)$/is);
+        if(m){
+          const polys=m[1].split(/\)\)\s*,\s*\(\(/).map(poly=>poly.split('),(').map(r=>r.split(',').map(p=>p.trim().split(/\s+/).map(Number))));
+          return {type:'MultiPolygon',coordinates:polys};
+        }
+        return null;
+      }catch(e){ console.error('parseGeometry err',e); return null; }
+    }
+
+    /* ---------- Buscador colonias ---------- */
+    function construirIndiceColonias(){
+      const capa = capasActivas['cdmx'];
+      if(!capa) return;
+      const set = new Set();
+      indiceColonias = [];
+      capa.eachLayer((layer)=>{
+        const f = layer.feature;
+        if(!f||!f.properties) return;
+        const props = f.properties;
+        const label = props.nombre ?? props.name ?? props.colonia ?? props.asentamiento ?? valorStringPrimera(props);
+        if(typeof label === 'string' && label.trim()){
+          const norm = label.trim();
+          if(!set.has(norm)){
+            set.add(norm);
+            const bounds = layer.getBounds ? layer.getBounds() : (layer.getLatLng ? L.latLngBounds([layer.getLatLng()]) : null);
+            indiceColonias.push({label:norm, layer, bounds});
+          }
+        }
+      });
+      const dl = document.getElementById('lista-colonias');
+      dl.innerHTML='';
+      indiceColonias.slice(0,3000).forEach(x=>{
+        const opt=document.createElement('option');
+        opt.value = x.label;
+        dl.appendChild(opt);
+      });
+    }
+    function valorStringPrimera(props){
+      for(const k in props){ if(typeof props[k]==='string' && props[k].trim()) return props[k]; }
+      return null;
+    }
+    function buscarColonia(){
+      const q = (document.getElementById('input-colonia').value||'').trim().toLowerCase();
+      if(!q){ mostrarStatus('🔎 Escribe un nombre de colonia','error'); return; }
+      if(!capasActivas['cdmx']){ mostrarStatus('ℹ️ Primero carga la capa de Colonias','error'); return; }
+      let cand = indiceColonias.filter(x=> x.label.toLowerCase().startsWith(q));
+      if(!cand.length) cand = indiceColonias.filter(x=> x.label.toLowerCase().includes(q));
+      if(!cand.length){ mostrarStatus('😕 No se encontró la colonia solicitada','error'); return; }
+      const sel = cand[0];
+      if(sel.bounds && sel.bounds.isValid && sel.bounds.isValid()){
+        mapa.fitBounds(sel.bounds, {padding:[20,20]});
+      } else if(sel.layer && sel.layer.getLatLng){
+        mapa.setView(sel.layer.getLatLng(), 15);
+      }
+      try{ const el = sel.layer.getElement && sel.layer.getElement(); if(el){ el.classList.add('flash-outline'); setTimeout(()=>el.classList.remove('flash-outline'), 1500); } }catch(_){}
+      mostrarStatus(`✅ Centrado en: ${sel.label}`,'success');
+    }
+
+    /* ---------- Stepper logic ---------- */
+    let stepIndex = 0;
+    function steps(){ return Array.from(document.querySelectorAll('.stepper .step')); }
+    function showStep(i){
+      const arr = steps();
+      stepIndex = Math.max(0, Math.min(i, arr.length-1));
+      arr.forEach((el, idx)=> el.classList.toggle('active', idx===stepIndex));
+    }
+    function stepSiguiente(){ showStep(stepIndex+1); }
+    function stepAnterior(){ showStep(stepIndex-1); }
+    function resetStepper(){ showStep(0); }
+
+    /* ---------- Cargar/limpiar ---------- */
+    function toggleCapa(nombreTabla){
+      if(capasActivas[nombreTabla]){
+        mapa.removeLayer(capasActivas[nombreTabla]); delete capasActivas[nombreTabla];
+        document.querySelectorAll('.capa-item').forEach(it=>{
+          if(it.textContent.includes(nombreTabla) ||
+             (nombreTabla==='cdmx' && it.textContent.includes('Colonias')) ||
+             (nombreTabla==='est_metro_sinZ' && it.textContent.includes('Metro')) ||
+             (nombreTabla==='Desa_cdmx_ejemplo' && it.textContent.includes('Desarrollos')) ||
+             (nombreTabla==='nuevos_desarrollos' && it.textContent.includes('Nuevos'))){
+            it.classList.remove('active');
+          }
+        });
+        mostrarStatus(`${nombreTabla} oculta`,'success');
+      } else {
+        cargarCapa(nombreTabla);
+      }
+    }
+    function cargarTodasCapas(){
+      cargarCapa('cdmx');
+      setTimeout(()=>cargarCapa('est_metro_sinZ'),500);
+      setTimeout(()=>cargarCapa('Desa_cdmx_ejemplo'),1000);
+      setTimeout(()=>cargarCapa('nuevos_desarrollos'),1500);
+    }
+    function limpiarMapa(){
+      for(const k in capasActivas){ mapa.removeLayer(capasActivas[k]); }
+      Object.keys(capasActivas).forEach(k=>delete capasActivas[k]);
+      document.querySelectorAll('.capa-item').forEach(it=>it.classList.remove('active'));
+      mostrarStatus('Mapa limpiado','success');
+    }
+
+    // Cargar colonias por defecto
+    setTimeout(()=>cargarCapa('cdmx'),500);
+  </script>
+</body>
+</html>
