@@ -1,0 +1,42 @@
+ln(val_m2) ~ β0
+           + β1 ln(area_m2)
+           + β2 recamaras
+           + β3 niveles
+           + β4 C(clasificac)            -- dummies
+           + β5 ln(1 + hubdist_cc/100)   -- pasa metros→hectómetros (o km)
+           + β6 ln(1 + hubdist_metro/100)
+           + β7 ln(1 + hubdist_av/100)
+           + β8 ln(1 + hubdist_edu/100)
+           + β9 ln(1 + hubdist_mb/100)
+
+📊 INTERPRETACIÓN RÁPIDA: MODELO LOG-LOG
+Formato Tabla (Comprensión Instantánea):
+Variable	Cambio	Efecto en Precio/m²	Ejemplo Práctico
+Área	+10% más área	+2.4% precio/m²	100m² → 110m² = +2.4%
+Niveles	+1 nivel más	+0.9% precio/m²	2 niveles → 3 niveles = +0.9%
+Recámaras	+1 recámara	-15% precio/m²	2 rec → 3 rec = -15% (cuartos chicos)
+Metro	10% más lejos	+0.22% precio	1km → 1.1km = +0.22% (zonas exclusivas)
+Comercios	10% más lejos	-0.7% precio	500m → 550m = -0.7%
+Avenidas	10% más lejos	+0.9% precio	2km → 2.2km = +0.9% (tranquilidad)
+Escuelas	10% más lejos	-0.16% precio	800m → 880m = -0.16%
+Hospitales	10% más lejos	-0.24% precio	1.5km → 1.65km = -0.24%
+Metrobús	10% más lejos	-0.29% precio	600m → 660m = -0.29%
+
+Formato 10 Renglones (Súper Directo):
+1.	Área: Cada 10% más de m² → +2.4% en precio/m² (inmuebles grandes valen más por m²)
+2.	Niveles: Cada piso adicional → +0.9% precio (efecto marginal pequeño)
+3.	Recámaras: Cada recámara extra → -15% precio (misma área dividida = cuartos chicos = menos valor)
+4.	Metro: 10% más lejos → +0.22% precio (contraintuitivo: zonas alejadas son exclusivas/tranquilas)
+5.	Comercios: 10% más lejos → -0.7% precio (cercanía a servicios aumenta valor)
+6.	Avenidas: 10% más lejos → +0.9% precio (alejarse del ruido/tráfico vale más)
+7.	Escuelas: 10% más lejos → -0.16% precio (familias prefieren cercanía a escuelas)
+8.	Hospitales: 10% más lejos → -0.24% precio (seguridad de tener servicios médicos cerca)
+9.	Metrobús: 10% más lejos → -0.29% precio (transporte público es valorado en CDMX)
+10.	CLAVE LOG-LOG: Todos los % son multiplicativos y capturan rendimientos decrecientes naturalmente
+Ejemplo Práctico Rápido:
+Casa de 100m², 3 niveles, 2 recámaras, a 1km del metro:
+•	Duplicar área (100→200m²): +24% precio/m²
+•	Duplicar distancia metro (1km→2km): +2.2% precio (efecto pequeño porque ya está lejos)
+•	Pasar de 100m a 200m del metro: +22% precio (efecto GRANDE porque estás cerca)
+→ El modelo log-log reconoce que los primeros metros importan MUCHO más que los últimos ✅
+
