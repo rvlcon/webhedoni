@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Geoportal Hedónico CDMX - Integrado BD Online</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --panel-grad: linear-gradient(135deg, #0A2540 0%, #1E2A36 45%, #7A7D7F 100%);
+      --text-main: #FFFFFF;
+      --text-subtle: #E6EAF0;
+      --accent: #60A5FA;
+      --primary: #2563EB;
+      --primary-hover: #1D4ED8;
+      --ghost-bg: #FFFFFF26;
+      --ghost-hover: #FFFFFF40;
+      --chip-bg: #FFFFFF22;
+      --danger: #EF4444;
+      --danger-hover: #DC2626;
+      --success: #16A34A;
+      --success-hover: #15803D;
+      --ok-bg: #16A34A;
+      --ok-bg-muted: #16A34A33;
+      --err-bg: #DC2626;
+      --err-bg-muted: #DC262633;
+    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Inter',system-ui,sans-serif;overflow:hidden}
+    
+    #panel{
+      position:fixed;left:0;top:0;width:360px;height:100vh;
+      background:var(--panel-grad);color:var(--text-main);
+      padding:20px;overflow-y:auto;box-shadow:4px 0 15px rgba(0,0,0,.2);z-index:1000
+    }
+    #mapa{position:fixed;left:360px;top:0;right:0;height:100vh}
+
+    h1{font-size:20px;margin-bottom:6px;text-shadow:2px 2px 4px rgba(0,0,0,.35)}
+    .subtitle{font-size:10px;color:var(--text-subtle);margin-bottom:14px;line-height:1.3}
+
+    .seccion{
+      background:rgba(255,255,255,.08);backdrop-filter:blur(10px);
+      padding:12px;border-radius:8px;margin-bottom:10px;border:1px solid rgba(255,255,255,.15)
+    }
+    .seccion h3{font-size:12px;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;color:#EAF2FF}
+    .seccion-header{
+      font-size:14px;
+      font-weight:700;
+      color:#60A5FA;
+      margin:16px 0 8px 0;
+      padding-bottom:4px;
+      border-bottom:2px solid rgba(96,165,250,0.3);
+    }
+
+    .capa-item{
+      background:rgba(255,255,255,.08);padding:10px;margin-bottom:6px;border-radius:8px;
+      cursor:pointer;transition:.3s;border:1px solid rgba(255,255,255,.15);display:flex;
+      align-items:center;justify-content:space-between
+    }
+    .capa-item:hover{background:rgba(255,255,255,.18);transform:translateX(3px)}
+    .capa-item.active{border-color:var(--accent);box-shadow:0 0 0 2px #60A5FA33 inset;background:rgba(255,255,255,.14)}
+    .capa-nombre{font-weight:600;font-size:11px;display:flex;align-items:center;gap:6px}
+    .capa-info{font-size:9px;color:var(--text-subtle);margin-top:2px}
+    .capa-color{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.4)}
+
+    .boton{
+      width:100%;padding:9px;margin-top:8px;background:var(--primary);
+      color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:.2s;font-size:11px
+    }
+    .boton:hover{background:var(--primary-hover);transform:translateY(-1px)}
+    .boton:active{transform:translateY(0)}
+    .boton:disabled{background:#555;cursor:not-allowed;opacity:0.5}
+    .boton-peligro{background:var(--danger)}
+    .boton-peligro:hover{background:var(--danger-hover)}
+    .boton-exito{background:var(--success)}
+    .boton-exito:hover{background:var(--success-hover)}
+    .boton-secundario{background:#0F2A49;border:1px solid #25435F}
+    .boton-secundario:hover{background:#143253}
+    .boton-ghost{background:var(--ghost-bg);border:1px solid rgba(255,255,255,.25)}
+    .boton-ghost:hover{background:var(--ghost-hover)}
+
+    .form-group{margin-bottom:8px}
+    .form-group label{display:block;font-size:10px;margin-bottom:3px;font-weight:600;color:#EAF2FF}
+    .form-group input,.form-group select{
+      width:100%;padding:7px;border:none;border-radius:6px;font-size:10px;
+      color:#0F172A;background:#F4F7FA
+    }
+
+    .status{padding:8px;border-radius:8px;margin-top:8px;font-size:10px;text-align:center}
+    .status.success{background:var(--ok-bg-muted);border:1px solid var(--ok-bg);color:#F0FFF4}
+    .status.error{background:var(--err-bg-muted);border:1px solid var(--err-bg);color:#FFF1F2}
+
+    .loading{text-align:center;padding:10px;background:rgba(255,255,255,.08);border-radius:8px;margin:8px 0;color:#EAF2FF;font-size:10px}
+    .spinner{border:2px solid rgba(255,255,255,.25);border-top:2px solid #fff;border-radius:50%;width:20px;height:20px;animation:spin 1s linear infinite;margin:6px auto}
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    
+    .helper-text{font-size:9px;color:var(--text-subtle);margin-top:3px;line-height:1.3}
+    .badge{display:inline-block;padding:2px 6px;font-size:9px;border-radius:999px;background:var(--chip-bg);color:#EAF2FF;margin-bottom:4px}
+    .mono{font-family:'JetBrains Mono',monospace;font-size:9px;white-space:pre-wrap;background:rgba(0,0,0,.2);padding:6px;border-radius:6px;margin-top:6px;max-height:100px;overflow-y:auto}
+    
+    .row{display:flex;gap:6px}
+    .row .form-group{flex:1}
+    .row .boton{flex:1}
+    
+    .leaflet-popup-content{font-size:11px}
+    .leaflet-popup-content strong{color:var(--primary)}
+    .custom-marker{font-size:24px;text-align:center}
+    
+    #buscador-colonias{display:flex;gap:4px;margin-top:6px}
+    #buscador-colonias input{flex:1;padding:7px;border:none;border-radius:6px;background:#F4F7FA;font-size:10px;color:#0F172A}
+    #buscador-colonias button{padding:7px 8px;border:1px solid rgba(255,255,255,.25);border-radius:6px;background:var(--ghost-bg);color:#fff;cursor:pointer;font-weight:600;font-size:10px}
+    #buscador-colonias button:hover{background:var(--ghost-hover)}
+
+    .paso-numero{
+      display:inline-block;
+      width:20px;
+      height:20px;
+      border-radius:50%;
+      background:var(--accent);
+      color:#0A2540;
+      font-weight:700;
+      text-align:center;
+      line-height:20px;
+      font-size:11px;
+      margin-right:6px;
+    }
+  </style>
+</head>
+<body>
+  <div id="panel">
+    <h1>🗺️ Geoportal Hedónico CDMX</h1>
+    <div class="subtitle">Sistema integrado de análisis espacial y econométrico de precios de vivienda conectado a BD online (Supabase → pgAdmin → QGIS)
+<br><strong style="color:#60A5FA">✨ MODELO LOG-LOG MEJORADO</strong> - Transformación logarítmica en distancias para mejor ajuste</div>
+
+    <!-- ============================================ -->
+    <!-- PASO 1: PREPARACIÓN DE DATOS -->
+    <!-- ============================================ -->
+    <div class="seccion-header">
+      <span class="paso-numero">1</span> PREPARACIÓN DE DATOS
+    </div>
+
+    <div class="seccion">
+      <h3>📊 Capas de Información</h3>
+
+      <div class="capa-item" onclick="toggleCapa('cdmx')">
+        <div>
+          <div class="capa-nombre">
+            <span class="capa-color" style="background:#60A5FA"></span>
+            Colonias CDMX
+          </div>
+          <div class="capa-info">Polígonos administrativos</div>
+        </div>
+      </div>
+
+      <div id="buscador-colonias">
+        <input id="input-colonia" list="lista-colonias" placeholder="Buscar colonia..."/>
+        <datalist id="lista-colonias"></datalist>
+        <button onclick="buscarColonia()">🔍</button>
+      </div>
+
+      <div class="capa-item" onclick="toggleCapa('desarrollos_ejemplo')">
+        <div>
+          <div class="capa-nombre">
+            <span class="capa-color" style="background:#38BDF8"></span>
+            Desarrollos Ejemplo
+          </div>
+          <div class="capa-info">Desarrollos de referencia</div>
+        </div>
+      </div>
+
+      <div class="capa-item" onclick="toggleCapa('nuevos_desarrollos')">
+        <div>
+          <div class="capa-nombre">
+            <span class="capa-color" style="background:#E0F2FE"></span>
+            Nuevos Desarrollos
+          </div>
+          <div class="capa-info">Alta de usuarios (CRUD)</div>
+        </div>
+      </div>
+
+      <div class="capa-item" onclick="toggleCapa('baseshp')">
+        <div>
+          <div class="capa-nombre">
+            <span class="capa-color" style="background:#A5B4FC"></span>
+            BaseSHP (Hedónico)
+          </div>
+          <div class="capa-info">Base para análisis</div>
+        </div>
+      </div>
+
+      <button class="boton boton-ghost" onclick="cargarTodasCapas()">📥 Cargar Todas las Capas</button>
+      <button class="boton boton-peligro" onclick="limpiarMapa()">🗑️ Limpiar Mapa</button>
+    </div>
+
+    <div class="seccion">
+      <h3>💹 Modelo Hedónico</h3>
+      <div class="helper-text" style="margin-bottom:8px;">
+        <strong>Modelo Log-Log Mejorado:</strong> Transformación logarítmica en área y distancias para mejor ajuste y captura de elasticidades.
+      </div>
+      
+      <button class="boton" id="hed-btn-load">📊 Cargar BaseSHP</button>
+      <div id="hed-load-msg" class="status" style="display:none"></div>
+
+      <button class="boton" id="hed-btn-train" style="margin-top:12px">🎯 Entrenar Modelo Global</button>
+      
+      <div class="row" style="margin-top:12px">
+        <button class="boton boton-ghost" id="hed-btn-savemodel">💾 Guardar</button>
+        <button class="boton boton-ghost" id="hed-btn-loadmodel">📂 Cargar</button>
+      </div>
+
+      <div id="hed-model-msg" class="status" style="display:none"></div>
+      <pre id="hed-model-dump" class="mono" style="display:none"></pre>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PASO 2: ANÁLISIS -->
+    <!-- ============================================ -->
+    <div class="seccion-header">
+      <span class="paso-numero">2</span> ANÁLISIS
+    </div>
+
+    <div class="seccion">
+      <h3>🌍 Análisis Global (Predicción Manual)</h3>
+      <div class="helper-text">Calcula precio con el modelo entrenado</div>
+      
+      <div class="form-group" style="margin-top:8px">
+        <label>Área (m²)</label>
+        <input id="hed-area" type="number" step="0.01" placeholder="100"/>
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label>Niveles</label>
+          <input id="hed-niveles" type="number" step="1" placeholder="3"/>
+        </div>
+        <div class="form-group">
+          <label>Recámaras</label>
+          <input id="hed-rec" type="number" step="1" placeholder="2"/>
+        </div>
+      </div>
+
+      <button class="boton" id="hed-btn-predict">💰 Calcular Precio</button>
+      <div id="hed-pred-msg" class="status" style="display:none"></div>
+    </div>
+
+    <div class="seccion">
+      <h3>📍 Análisis Local (Ubicación Específica)</h3>
+      
+      <button class="boton" id="btn-puntero">🎯 Activar Puntero</button>
+      <div class="helper-text">Haz clic en el mapa para seleccionar ubicación</div>
+      
+      <div id="ubicacion-info" style="display:none;margin-top:8px;padding:6px;background:rgba(255,255,255,.1);border-radius:6px;font-size:10px">
+        <strong>📌 Ubicación seleccionada:</strong><br>
+        <span id="coord-info"></span>
+      </div>
+
+      <div class="form-group" style="margin-top:8px">
+        <label>Vecinos cercanos</label>
+        <input id="num-vecinos" type="number" value="50" min="10" max="200" step="10"/>
+      </div>
+
+      <button class="boton boton-secundario" id="btn-analisis-local" disabled>📊 Analizar Ubicación</button>
+      <div id="analisis-local-msg" class="status" style="display:none"></div>
+      <pre id="analisis-local-dump" class="mono" style="display:none"></pre>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PASO 3: REGISTRO DE DESARROLLO -->
+    <!-- ============================================ -->
+    <div class="seccion-header">
+      <span class="paso-numero">3</span> REGISTRO DE DESARROLLO
+    </div>
+
+    <div class="seccion">
+      <h3>➕ Dar de Alta Desarrollo</h3>
+      <div class="helper-text">Registra el desarrollo analizado en la base de datos</div>
+      
+      <button class="boton boton-exito" id="btn-alta-desarrollo" style="display:none">
+        ➕ Dar de Alta este Desarrollo
+      </button>
+      <div class="helper-text" style="margin-top:8px;display:none" id="helper-alta">
+        Se abrirá una ventana con los datos pre-cargados
+      </div>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+  <div id="mapa"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // ===== CONFIGURACIÓN =====
+    const SUPABASE_URL = 'https://anyzwlksikreczclzkxc.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFueXp3bGtzaWtyZWN6Y2x6a3hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MTY0NTcsImV4cCI6MjA3NTA5MjQ1N30.sMs4-59Q7ajHLQHJYxVXAhwODlkSREfUNYiQ8BswMjQ';
+
+    const mapa = L.map('mapa').setView([19.4326, -99.1332], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(mapa);
+
+    // ===== VARIABLES =====
+    // MODELO LOG-LOG MEJORADO: Transformación logarítmica en TODAS las distancias
+    // Mejora esperada de R²: 0.58 → 0.60-0.65
+    // Variables: ln(area), niveles, recamaras, ln(distancias + 1)
+    const VARS = ["ln_area", "niveles", "recamaras", "ln_hubdistmet", "ln_hubdistcc", "ln_hubdistav", "ln_hubdisted", "ln_hubdistsal", "ln_hubdistmb"];
+    const capasActivas = {};
+    let hedBaseRows = [];
+    let hedModel = null;
+    let hedModelLocal = null;
+    let punteroActivo = false;
+    let marcadorUbicacion = null;
+    let ubicacionSeleccionada = null;
+    let circuloVecinos = null;
+    let indiceColonias = [];
+    let ultimoAnalisis = null; // Para pasar datos al Mapa 2
+
+    const ESTILOS_CAPAS = {
+      'cdmx': {color:'#60A5FA',weight:2,fillOpacity:.15,fillColor:'#60A5FA'},
+      'desarrollos_ejemplo': {radius:8,fillColor:'#38BDF8',color:'#0A2540',weight:2,opacity:1,fillOpacity:.9},
+      'nuevos_desarrollos': {radius:9,fillColor:'#E0F2FE',color:'#0A2540',weight:2,opacity:1,fillOpacity:.95},
+      'baseshp': {radius:5,fillColor:'#A5B4FC',color:'#0A2540',weight:1,opacity:1,fillOpacity:.7}
+    };
+
+    // ===== HELPERS =====
+    function show(el, on) {
+      if (typeof el === 'string') el = document.getElementById(el);
+      if (el) el.style.display = on ? '' : 'none';
+    }
+
+    function msg(elId, txt, type) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.className = 'status ' + (type === 'error' ? 'error' : 'success');
+      el.textContent = txt;
+      show(el, true);
+      if (type !== 'error') setTimeout(() => show(el, false), 3000);
+    }
+
+    function fmt(x) {
+      return Number.isFinite(x) ? x.toLocaleString('es-MX', {maximumFractionDigits:2}) : String(x);
+    }
+
+    // ===== API =====
+    async function apiGet(path) {
+      const r = await fetch(`${SUPABASE_URL}${path}`, {
+        headers: {apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`}
+      });
+      return r;
+    }
+
+    async function apiPost(path, body) {
+      const r = await fetch(`${SUPABASE_URL}${path}`, {
+        method:'POST',
+        headers: {
+          apikey:SUPABASE_KEY,
+          Authorization:`Bearer ${SUPABASE_KEY}`,
+          'Content-Type':'application/json',
+          Prefer:'return=representation'
+        },
+        body: JSON.stringify(body)
+      });
+      return r;
+    }
+
+    async function apiDelete(path) {
+      const r = await fetch(`${SUPABASE_URL}${path}`, {
+        method:'DELETE',
+        headers: {apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`}
+      });
+      return r;
+    }
+
+    // ===== ÁLGEBRA =====
+    function matT(A) {
+      const r = A.length, c = A[0].length;
+      const T = Array.from({length:c}, () => Array(r).fill(0));
+      for (let i=0; i<r; i++)
+        for (let j=0; j<c; j++)
+          T[j][i] = A[i][j];
+      return T;
+    }
+
+    function matMul(A, B) {
+      const r=A.length, c=B[0].length, n=B.length;
+      const M = Array.from({length:r}, () => Array(c).fill(0));
+      for (let i=0; i<r; i++) {
+        for (let k=0; k<n; k++) {
+          const aik = A[i][k];
+          if (!Number.isFinite(aik)) continue;
+          for (let j=0; j<c; j++) {
+            const b = B[k][j];
+            if (!Number.isFinite(b)) continue;
+            M[i][j] += aik * b;
+          }
+        }
+      }
+      return M;
+    }
+
+    function matInv(A) {
+      const n = A.length;
+      const M = A.map(row => row.slice());
+      const I = Array.from({length:n}, (_, i) =>
+        Array.from({length:n}, (__, j) => i===j ? 1 : 0)
+      );
+      for (let i=0; i<n; i++) {
+        let p = i;
+        for (let r=i+1; r<n; r++)
+          if (Math.abs(M[r][i]) > Math.abs(M[p][i])) p = r;
+        if (Math.abs(M[p][i]) < 1e-12) throw new Error("Matriz singular");
+        if (p !== i) {
+          [M[i], M[p]] = [M[p], M[i]];
+          [I[i], I[p]] = [I[p], I[i]];
+        }
+        const piv = M[i][i];
+        for (let j=0; j<n; j++) {
+          M[i][j] /= piv;
+          I[i][j] /= piv;
+        }
+        for (let r=0; r<n; r++) {
+          if (r === i) continue;
+          const f = M[r][i];
+          for (let j=0; j<n; j++) {
+            M[r][j] -= f * M[i][j];
+            I[r][j] -= f * I[i][j];
+          }
+        }
+      }
+      return I;
+    }
+
+    function r2(y, yhat) {
+      const n = y.length;
+      const ybar = y.reduce((a,b) => a+b, 0) / n;
+      let ssr=0, sst=0;
+      for (let i=0; i<n; i++) {
+        ssr += (yhat[i] - ybar) ** 2;
+        sst += (y[i] - ybar) ** 2;
+      }
+      return ssr / sst;
+    }
+
+    function buildDesign(rows) {
+      const X=[], y=[], used=[];
+      for (const r of rows) {
+        const valm2 = r['val m2'];
+        const area = r.area;
+        if (!Number.isFinite(valm2) || valm2<=0 || !Number.isFinite(area) || area<=0) continue;
+        
+        // Aplicar transformación logarítmica a distancias (+1 para evitar ln(0))
+        const xi = [
+          1,
+          Math.log(area),
+          Number(r.niveles ?? 0),
+          Number(r.recamaras ?? 0),
+          Math.log(Number(r.hubdistmet ?? 0) + 1),  // ln(dist + 1)
+          Math.log(Number(r.hubdistcc ?? 0) + 1),   // ln(dist + 1)
+          Math.log(Number(r.hubdistav ?? 0) + 1),   // ln(dist + 1)
+          Math.log(Number(r.hubdisted ?? 0) + 1),   // ln(dist + 1)
+          Math.log(Number(r.hubdistsal ?? 0) + 1),  // ln(dist + 1)
+          Math.log(Number(r.hubdistmb ?? 0) + 1),   // ln(dist + 1)
+        ];
+        if (xi.some(v => !Number.isFinite(v))) continue;
+        X.push(xi);
+        y.push(Math.log(valm2));
+        used.push(r.id);
+      }
+      return {X, y, used};
+    }
+
+    function hedModelText(m) {
+      if (!m) return '(sin modelo)';
+      const lines = m.names.map((n, i) => `${n.padEnd(14)} = ${m.coef[i].toFixed(6)}`);
+      lines.push(`R² = ${m.r2.toFixed(4)}`);
+      return lines.join('\n');
+    }
+
+    function calcDist(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    // ===== CARGAR CAPAS =====
+    async function cargarCapa(nombreTabla) {
+      msg('status', `Cargando ${nombreTabla}...`, 'success');
+      try {
+        let all=[]; let offset=0; const limit=1000; let more=true;
+        while (more) {
+          const url = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(nombreTabla)}?select=*&limit=${limit}&offset=${offset}`;
+          const r = await fetch(url, {headers:{apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`}});
+          if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+          const chunk = await r.json();
+          all = all.concat(chunk);
+          offset += limit;
+          if (chunk.length < limit) more = false;
+        }
+        if (!all.length) {
+          msg('status', `${nombreTabla}: sin datos`, 'error');
+          return;
+        }
+        agregarCapaAlMapa(nombreTabla, all);
+        msg('status', `✅ ${nombreTabla} (${all.length} registros)`, 'success');
+        if (nombreTabla === 'cdmx') construirIndiceColonias();
+      } catch (e) {
+        console.error(e);
+        msg('status', `❌ ${nombreTabla}: ${e.message}`, 'error');
+      }
+    }
+
+    function agregarCapaAlMapa(nombre, datos) {
+      if (capasActivas[nombre]) mapa.removeLayer(capasActivas[nombre]);
+
+      const toPointGeom = (item) => {
+        if (typeof item.latitud === 'number' && typeof item.longitud === 'number') {
+          return {type:'Point', coordinates:[item.longitud, item.latitud]};
+        }
+        if (typeof item.lat === 'number' && typeof item.lng === 'number') {
+          return {type:'Point', coordinates:[item.lng, item.lat]};
+        }
+        if (typeof item.lat === 'number' && typeof item.lon === 'number') {
+          return {type:'Point', coordinates:[item.lon, item.lat]};
+        }
+        return null;
+      };
+
+      const geojson = {
+        type:'FeatureCollection',
+        features: datos.map(item => {
+          let geometry = null;
+          if (item.geom) {
+            if (typeof item.geom === 'string') geometry = parseGeometry(item.geom);
+            else if (item.geom.type) geometry = item.geom;
+          } else {
+            geometry = toPointGeom(item);
+          }
+          const props = {...item};
+          delete props.geom;
+          return {type:'Feature', properties:props, geometry};
+        }).filter(f => f.geometry)
+      };
+
+      const capa = L.geoJSON(geojson, {
+        style: ESTILOS_CAPAS[nombre],
+        pointToLayer: (f, latlng) => L.circleMarker(latlng, ESTILOS_CAPAS[nombre] || {radius:6}),
+        onEachFeature: (f, l) => {
+          const p = f.properties;
+          let html = `<div style="max-width:220px;"><h4 style="margin:0 0 6px;color:#1E3A8A">${nombre}</h4>`;
+          let c = 0;
+          for (const k in p) {
+            if (p[k] == null) continue;
+            let v = p[k];
+            if (typeof v === 'string' && v.length > 100) v = v.substring(0, 100) + '...';
+            html += `<strong>${k}:</strong> ${v}<br/>`;
+            if (++c >= 10) break;
+          }
+          html += '</div>';
+          l.bindPopup(html);
+        }
+      }).addTo(mapa);
+
+      capasActivas[nombre] = capa;
+      document.querySelectorAll('.capa-item').forEach(it => {
+        if (it.textContent.toLowerCase().includes(nombre.toLowerCase())) {
+          it.classList.add('active');
+        }
+      });
+
+      if (capa.getBounds().isValid()) mapa.fitBounds(capa.getBounds());
+    }
+
+    function parseGeometry(geomStr) {
+      try {
+        if (!geomStr || typeof geomStr !== 'string') return null;
+        let s = geomStr.trim();
+        if (s.startsWith('{') || s.startsWith('[')) {
+          try {
+            const gj = JSON.parse(s);
+            if (gj && gj.type) return gj;
+          } catch {}
+          return null;
+        }
+        const sr = /^SRID=\d+;/i;
+        if (sr.test(s)) s = s.replace(sr, '');
+        let m = s.match(/^POINT\s*\(([-\d.]+)\s+([-\d.]+)\)$/i);
+        if (m) return {type:'Point', coordinates:[parseFloat(m[1]), parseFloat(m[2])]};
+        m = s.match(/^POLYGON\s*\(\((.+)\)\)$/is);
+        if (m) {
+          const rings = m[1].split('),(').map(r => r.split(',').map(p => p.trim().split(/\s+/).map(Number)));
+          return {type:'Polygon', coordinates:rings};
+        }
+        m = s.match(/^MULTIPOLYGON\s*\(\(\((.+)\)\)\)$/is);
+        if (m) {
+          const polys = m[1].split(/\)\)\s*,\s*\(\(/).map(poly => poly.split('),(').map(r => r.split(',').map(p => p.trim().split(/\s+/).map(Number))));
+          return {type:'MultiPolygon', coordinates:polys};
+        }
+        return null;
+      } catch (e) {
+        console.error('parseGeometry err', e);
+        return null;
+      }
+    }
+
+    function toggleCapa(nombre) {
+      if (capasActivas[nombre]) {
+        mapa.removeLayer(capasActivas[nombre]);
+        delete capasActivas[nombre];
+        document.querySelectorAll('.capa-item').forEach(it => {
+          if (it.textContent.toLowerCase().includes(nombre.toLowerCase())) {
+            it.classList.remove('active');
+          }
+        });
+        msg('status', `${nombre} oculta`, 'success');
+      } else {
+        cargarCapa(nombre);
+      }
+    }
+
+    function cargarTodasCapas() {
+      cargarCapa('cdmx');
+      setTimeout(() => cargarCapa('desarrollos_ejemplo'), 500);
+      setTimeout(() => cargarCapa('nuevos_desarrollos'), 1000);
+      setTimeout(() => cargarCapa('baseshp'), 1500);
+    }
+
+    function limpiarMapa() {
+      for (const k in capasActivas) mapa.removeLayer(capasActivas[k]);
+      Object.keys(capasActivas).forEach(k => delete capasActivas[k]);
+      document.querySelectorAll('.capa-item').forEach(it => it.classList.remove('active'));
+      msg('status', 'Mapa limpiado', 'success');
+    }
+
+    // ===== BUSCADOR COLONIAS =====
+    function construirIndiceColonias() {
+      const capa = capasActivas['cdmx'];
+      if (!capa) return;
+      const set = new Set();
+      indiceColonias = [];
+      capa.eachLayer((layer) => {
+        const f = layer.feature;
+        if (!f || !f.properties) return;
+        const props = f.properties;
+        const label = props.nombre ?? props.name ?? props.colonia ?? props.asentamiento ?? valorStringPrimera(props);
+        if (typeof label === 'string' && label.trim()) {
+          const norm = label.trim();
+          if (!set.has(norm)) {
+            set.add(norm);
+            const bounds = layer.getBounds ? layer.getBounds() : (layer.getLatLng ? L.latLngBounds([layer.getLatLng()]) : null);
+            indiceColonias.push({label:norm, layer, bounds});
+          }
+        }
+      });
+      const dl = document.getElementById('lista-colonias');
+      dl.innerHTML = '';
+      indiceColonias.slice(0, 3000).forEach(x => {
+        const opt = document.createElement('option');
+        opt.value = x.label;
+        dl.appendChild(opt);
+      });
+    }
+
+    function valorStringPrimera(props) {
+      for (const k in props) {
+        if (typeof props[k] === 'string' && props[k].trim()) return props[k];
+      }
+      return null;
+    }
+
+    function buscarColonia() {
+      const q = (document.getElementById('input-colonia').value || '').trim().toLowerCase();
+      if (!q) {
+        msg('status', '🔍 Escribe una colonia', 'error');
+        return;
+      }
+      if (!capasActivas['cdmx']) {
+        msg('status', '❌ Primero carga Colonias CDMX', 'error');
+        return;
+      }
+      let cand = indiceColonias.filter(x => x.label.toLowerCase().startsWith(q));
+      if (!cand.length) cand = indiceColonias.filter(x => x.label.toLowerCase().includes(q));
+      if (!cand.length) {
+        msg('status', '😕 Colonia no encontrada', 'error');
+        return;
+      }
+      const sel = cand[0];
+      if (sel.bounds && sel.bounds.isValid && sel.bounds.isValid()) {
+        mapa.fitBounds(sel.bounds, {padding:[20,20]});
+      } else if (sel.layer && sel.layer.getLatLng) {
+        mapa.setView(sel.layer.getLatLng(), 15);
+      }
+      msg('status', `✅ ${sel.label}`, 'success');
+    }
+
+    // ===== PUNTERO =====
+    function togglePuntero() {
+      punteroActivo = !punteroActivo;
+      const btn = document.getElementById('btn-puntero');
+      if (punteroActivo) {
+        btn.textContent = '❌ Desactivar Puntero';
+        btn.classList.add('boton-peligro');
+        mapa.getContainer().style.cursor = 'crosshair';
+      } else {
+        btn.textContent = '🎯 Activar Puntero';
+        btn.classList.remove('boton-peligro');
+        mapa.getContainer().style.cursor = '';
+        // Habilitar botón de análisis solo si hay ubicación
+        document.getElementById('btn-analisis-local').disabled = !ubicacionSeleccionada;
+      }
+    }
+
+    mapa.on('click', (e) => {
+      if (!punteroActivo) return;
+      const {lat, lng} = e.latlng;
+      ubicacionSeleccionada = {lat, lng};
+      if (marcadorUbicacion) mapa.removeLayer(marcadorUbicacion);
+      marcadorUbicacion = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: 'custom-marker',
+          html: '📍',
+          iconSize: [30, 30],
+          iconAnchor: [15, 30]
+        })
+      }).addTo(mapa);
+      marcadorUbicacion.bindPopup(`
+        <strong>📌 Ubicación</strong><br>
+        ${lat.toFixed(6)}, ${lng.toFixed(6)}<br>
+        <button onclick="analizarUbicacion()" style="margin-top:5px;padding:5px 10px;background:#2563EB;color:white;border:none;border-radius:4px;cursor:pointer">
+          📊 Analizar
+        </button>
+      `).openPopup();
+      document.getElementById('coord-info').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      show('ubicacion-info', true);
+      
+      // Habilitar botón de análisis local
+      document.getElementById('btn-analisis-local').disabled = false;
+    });
+
+    // ===== ANÁLISIS LOCAL =====
+    async function analizarUbicacion() {
+      try {
+        if (!ubicacionSeleccionada) {
+          msg('analisis-local-msg', '❌ Selecciona ubicación', 'error');
+          return;
+        }
+        if (!hedBaseRows.length) {
+          msg('analisis-local-msg', '❌ Carga BaseSHP primero', 'error');
+          return;
+        }
+        msg('analisis-local-msg', 'Analizando...', 'success');
+        const numVec = parseInt(document.getElementById('num-vecinos').value) || 50;
+        const {lat, lng} = ubicacionSeleccionada;
+
+        const vecinos = hedBaseRows
+          .filter(r => r.latitud && r.longitud)
+          .map(r => ({...r, distancia: calcDist(lat, lng, r.latitud, r.longitud)}))
+          .sort((a,b) => a.distancia - b.distancia)
+          .slice(0, numVec);
+
+        const {X, y} = buildDesign(vecinos);
+        if (X.length < VARS.length + 5) throw new Error('Muy pocos vecinos válidos');
+        
+        const Xt = matT(X);
+        const beta = matMul(matInv(matMul(Xt, X)), matMul(Xt, y.map(v => [v]))).map(row => row[0]);
+        const yhat = X.map(row => row.reduce((acc, v, j) => acc + v * beta[j], 0));
+        const R2 = r2(y, yhat);
+        
+        hedModelLocal = {names: ['intercepto'].concat(VARS), coef: beta, r2: R2};
+        const distMax = Math.max(...vecinos.map(v => v.distancia));
+
+        if (circuloVecinos) mapa.removeLayer(circuloVecinos);
+        circuloVecinos = L.circle([lat, lng], {
+          radius: distMax,
+          color: '#60A5FA',
+          fillColor: '#60A5FA',
+          fillOpacity: 0.1,
+          weight: 2
+        }).addTo(mapa);
+
+        const prom = {
+          valm2: vecinos.reduce((acc, v) => acc + (v['val m2'] || 0), 0) / X.length,
+          area: vecinos.reduce((acc, v) => acc + (v.area || 0), 0) / X.length,
+          niveles: vecinos.reduce((acc, v) => acc + (v.niveles || 0), 0) / X.length,
+          recamaras: vecinos.reduce((acc, v) => acc + (v.recamaras || 0), 0) / X.length,
+          distProm: vecinos.reduce((acc, v) => acc + v.distancia, 0) / X.length
+        };
+
+        // Calcular precio predicho para la ubicación usando promedios de zona
+        const precioPredicho = hedPredict(prom.area, prom.niveles, prom.recamaras, 0, 0, 0, 0, 0, 0, hedModelLocal);
+
+        // GUARDAR DATOS PARA MAPA 2
+        ultimoAnalisis = {
+          lat: lat,
+          lng: lng,
+          precio_m2_predicho: precioPredicho,
+          variables_entorno: {
+            // Promedios de la zona
+            area_promedio: prom.area,
+            niveles_promedio: prom.niveles,
+            recamaras_promedio: prom.recamaras,
+            precio_m2_promedio: prom.valm2,
+            distancia_promedio_vecinos: prom.distProm,
+            num_vecinos_analizados: X.length,
+            radio_analisis_metros: distMax,
+            r2_modelo_local: R2
+          }
+        };
+
+        let rep = `═══ ANÁLISIS LOCAL ═══\n`;
+        rep += `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}\n`;
+        rep += `🎯 Vecinos: ${X.length}\n`;
+        rep += `📏 Radio: ${(distMax/1000).toFixed(2)} km\n`;
+        rep += `📊 Dist prom: ${(prom.distProm/1000).toFixed(2)} km\n\n`;
+        rep += `💰 PRECIO PREDICHO: $${fmt(precioPredicho)}/m²\n\n`;
+        rep += `═══ MODELO LOCAL ═══\n`;
+        rep += hedModelText(hedModelLocal) + '\n\n';
+        rep += `═══ PROMEDIOS ZONA ═══\n`;
+        rep += `💰 Precio m²: $${fmt(prom.valm2)}\n`;
+        rep += `📐 Área: ${prom.area.toFixed(1)} m²\n`;
+        rep += `🏢 Niveles: ${prom.niveles.toFixed(1)}\n`;
+        rep += `🛏️ Recámaras: ${prom.recamaras.toFixed(1)}\n`;
+
+        if (hedModel) {
+          rep += `\n═══ GLOBAL vs LOCAL ═══\n`;
+          rep += `R² Global: ${hedModel.r2.toFixed(4)} | Local: ${hedModelLocal.r2.toFixed(4)}\n`;
+        }
+
+        const dump = document.getElementById('analisis-local-dump');
+        dump.textContent = rep;
+        show(dump, true);
+        msg('analisis-local-msg', '✅ Análisis completado', 'success');
+
+        // MOSTRAR BOTÓN DE ALTA
+        show('btn-alta-desarrollo', true);
+        show('helper-alta', true);
+
+      } catch (e) {
+        console.error(e);
+        msg('analisis-local-msg', `❌ ${e.message}`, 'error');
+      }
+    }
+    window.analizarUbicacion = analizarUbicacion;
+
+    // ===== ABRIR MAPA 2 =====
+    function abrirMapa2ParaAlta() {
+      if (!ultimoAnalisis) {
+        alert('❌ Primero realiza un análisis haciendo click en el mapa');
+        return;
+      }
+      
+      // Codificar datos en Base64 para URL
+      const datosEncoded = btoa(encodeURIComponent(JSON.stringify(ultimoAnalisis)));
+      
+      // Abrir Mapa 2 con datos en URL
+      window.open(`mapa2_alta_desarrollos.html?datos=${datosEncoded}`, '_blank', 'width=1400,height=900');
+    }
+
+    // ===== MODELO HEDÓNICO =====
+    async function hedLoadBase() {
+      try {
+        msg('hed-load-msg', 'Cargando...', 'success');
+        const cols = ['id','"val m2"','area','niveles','recamaras','hubdistmet','hubdistcc','hubdistav','hubdisted','hubdistsal','hubdistmb','latitud','longitud'];
+        const sel = encodeURIComponent(cols.join(','));
+        const url = `${SUPABASE_URL}/rest/v1/baseshp?select=${sel}&limit=5000`;
+        const r = await fetch(url, {headers:{apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`}});
+        if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+        const data = await r.json();
+        hedBaseRows = data;
+        msg('hed-load-msg', `✅ ${data.length} registros`, 'success');
+      } catch (e) {
+        console.error(e);
+        msg('hed-load-msg', `❌ ${e.message}`, 'error');
+      }
+    }
+
+    function hedTrain() {
+      const {X, y} = buildDesign(hedBaseRows);
+      if (X.length < VARS.length + 5) throw new Error('Muy pocos datos válidos');
+      const Xt = matT(X);
+      const beta = matMul(matInv(matMul(Xt, X)), matMul(Xt, y.map(v => [v]))).map(row => row[0]);
+      const yhat = X.map(row => row.reduce((acc, v, j) => acc + v * beta[j], 0));
+      const R2 = r2(y, yhat);
+      hedModel = {names: ['intercepto'].concat(VARS), coef: beta, r2: R2};
+      return {n: X.length, R2};
+    }
+
+    async function hedSaveModel() {
+      if (!hedModel) throw new Error('Entrena primero');
+      await apiDelete(`/rest/v1/hedonic_model_coeffs?model_name=eq.modelo_vigente`);
+      const rows = hedModel.names.map((name, i) => ({
+        model_name:'modelo_vigente', 
+        var_name:name, 
+        beta:hedModel.coef[i],
+        se: null,
+        p_val: null
+      }));
+      rows.push({
+        model_name:'modelo_vigente', 
+        var_name:'__meta__R2', 
+        beta:hedModel.r2,
+        se: null,
+        p_val: null
+      });
+      const r = await apiPost(`/rest/v1/hedonic_model_coeffs`, rows);
+      if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+    }
+
+    async function hedLoadModel() {
+      const url = `/rest/v1/hedonic_model_coeffs?select=*&model_name=eq.modelo_vigente&order=id.asc`;
+      const r = await apiGet(url);
+      if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+      const data = await r.json();
+      if (!data.length) throw new Error('No se encontró modelo');
+      const names=[], coef=[];
+      let R2 = null;
+      for (const row of data) {
+        if (row.var_name === '__meta__R2') {
+          R2 = row.beta;
+          continue;
+        }
+        names.push(row.var_name);
+        coef.push(row.beta);
+      }
+      hedModel = {names, coef, r2: R2 ?? NaN};
+    }
+
+    function hedPredict(area, niv, rec, met, cc, av, ed, sal, mb, model) {
+      if (!model) throw new Error('No hay modelo');
+      if (!(area > 0)) throw new Error('Área > 0');
+      // Aplicar transformación logarítmica a distancias (+1 para evitar ln(0))
+      const x = [
+        1, 
+        Math.log(area), 
+        niv||0, 
+        rec||0, 
+        Math.log((met||0) + 1),   // ln(dist + 1)
+        Math.log((cc||0) + 1),    // ln(dist + 1)
+        Math.log((av||0) + 1),    // ln(dist + 1)
+        Math.log((ed||0) + 1),    // ln(dist + 1)
+        Math.log((sal||0) + 1),   // ln(dist + 1)
+        Math.log((mb||0) + 1)     // ln(dist + 1)
+      ];
+      const ln = model.coef.reduce((acc, b, j) => acc + b * x[j], 0);
+      return Math.exp(ln);
+    }
+
+    // ===== LISTENERS =====
+    document.getElementById('btn-puntero').onclick = togglePuntero;
+    document.getElementById('btn-analisis-local').onclick = analizarUbicacion;
+    document.getElementById('btn-alta-desarrollo').onclick = abrirMapa2ParaAlta;
+    document.getElementById('hed-btn-load').onclick = hedLoadBase;
+
+    document.getElementById('hed-btn-train').onclick = () => {
+      try {
+        if (!hedBaseRows.length) {
+          msg('hed-model-msg', '❌ Carga BaseSHP primero', 'error');
+          return;
+        }
+        msg('hed-model-msg', 'Entrenando...', 'success');
+        const {n, R2} = hedTrain();
+        msg('hed-model-msg', `✅ n=${n}, R²=${R2.toFixed(4)}`, 'success');
+        const dump = document.getElementById('hed-model-dump');
+        dump.textContent = hedModelText(hedModel);
+        show(dump, true);
+      } catch (e) {
+        msg('hed-model-msg', `❌ ${e.message}`, 'error');
+      }
+    };
+
+    document.getElementById('hed-btn-savemodel').onclick = async () => {
+      try {
+        msg('hed-model-msg', 'Guardando...', 'success');
+        await hedSaveModel();
+        msg('hed-model-msg', '✅ Modelo guardado', 'success');
+      } catch (e) {
+        msg('hed-model-msg', `❌ ${e.message}`, 'error');
+      }
+    };
+
+    document.getElementById('hed-btn-loadmodel').onclick = async () => {
+      try {
+        msg('hed-model-msg', 'Cargando...', 'success');
+        await hedLoadModel();
+        msg('hed-model-msg', '✅ Modelo cargado', 'success');
+        const dump = document.getElementById('hed-model-dump');
+        dump.textContent = hedModelText(hedModel);
+        show(dump, true);
+      } catch (e) {
+        msg('hed-model-msg', `❌ ${e.message}`, 'error');
+      }
+    };
+
+    document.getElementById('hed-btn-predict').onclick = () => {
+      try {
+        const area = Number(document.getElementById('hed-area').value);
+        const niv = Number(document.getElementById('hed-niveles').value);
+        const rec = Number(document.getElementById('hed-rec').value);
+        const met = 0, cc = 0, av = 0, ed = 0, sal = 0, mb = 0;
+
+        if (!area || area <= 0) {
+          msg('hed-pred-msg', '❌ Área válida', 'error');
+          return;
+        }
+
+        let res = '';
+        if (hedModel) {
+          const valGlobal = hedPredict(area, niv, rec, met, cc, av, ed, sal, mb, hedModel);
+          res += `🌍 GLOBAL: $${fmt(valGlobal)}/m² | Total: $${fmt(valGlobal*area)}\n`;
+        }
+        if (hedModelLocal) {
+          const valLocal = hedPredict(area, niv, rec, met, cc, av, ed, sal, mb, hedModelLocal);
+          res += `📍 LOCAL: $${fmt(valLocal)}/m² | Total: $${fmt(valLocal*area)}\n`;
+          if (hedModel) {
+            const valGlobal = hedPredict(area, niv, rec, met, cc, av, ed, sal, mb, hedModel);
+            const dif = ((valLocal - valGlobal) / valGlobal) * 100;
+            res += `Dif: ${dif > 0 ? '+' : ''}${dif.toFixed(1)}%`;
+          }
+        }
+        if (!res) {
+          msg('hed-pred-msg', '❌ Entrena un modelo', 'error');
+          return;
+        }
+        msg('hed-pred-msg', res, 'success');
+      } catch (e) {
+        msg('hed-pred-msg', `❌ ${e.message}`, 'error');
+      }
+    };
+
+    // ===== INIT =====
+    console.log('✅ Geoportal Hedónico CDMX Integrado cargado');
+    setTimeout(() => cargarCapa('cdmx'), 500);
+  </script>
+</body>
+</html>
