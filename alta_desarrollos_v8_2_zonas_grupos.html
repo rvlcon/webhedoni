@@ -59,7 +59,8 @@ button{border:0;border-radius:6px;padding:10px 12px;cursor:pointer;font-weight:b
 .zona-grupo-info{margin:2px 0 9px;padding:8px 10px;border-radius:7px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;font-size:11px;line-height:1.4}
 .zona-grupo-info.correcta{border-color:#86efac;background:#dcfce7;color:#166534}
 .zona-grupo-info.fuera{border-color:#fca5a5;background:#fee2e2;color:#991b1b;font-weight:700}
-.grupo-zona-label{background:rgba(255,255,255,.9);border:1px solid #334155;border-radius:5px;box-shadow:none;color:#0f172a;font-weight:800;padding:2px 5px}
+.grupo-zona-marcador{background:transparent;border:0}
+.grupo-zona-marcador span{display:block;width:72px;margin:0;text-align:center;background:rgba(255,255,255,.94);border:2px solid #1e293b;border-radius:7px;box-shadow:0 2px 6px rgba(15,23,42,.28);color:#0f172a;font-size:12px;font-weight:800;line-height:22px;white-space:nowrap}
 @media(max-width:760px){.metricas-avance{grid-template-columns:repeat(2,1fr)}}
 
 </style>
@@ -276,12 +277,9 @@ const COLORES_GRUPOS={I:'#e11d48',II:'#f97316',III:'#eab308',IV:'#65a30d',V:'#16
 let geojsonGrupos=null;
 let capaGrupos=L.geoJSON(null,{
   pane:'zonasTrabajoPane',
-  style:feature=>estiloZona(feature,false),
-  onEachFeature:(feature,layer)=>{
-    const grupo=grupoFeature(feature);
-    if(grupo) layer.bindTooltip(`Grupo ${grupo}`,{permanent:true,direction:'center',className:'grupo-zona-label'});
-  }
+  style:feature=>estiloZona(feature,false)
 }).addTo(map);
+let capaEtiquetasGrupos=L.layerGroup().addTo(map);
 let capaDesarrollos = L.layerGroup().addTo(map);
 let alumnoSesion = null;
 let modoVisor = 'todos';
@@ -384,12 +382,13 @@ function grupoFeature(feature){
 function estiloZona(feature,seleccionada){
   const grupo=grupoFeature(feature);
   const color=COLORES_GRUPOS[grupo]||'#475569';
+  const haySeleccion=Boolean(document.getElementById('grupo')?.value);
   return {
     color:seleccionada?'#0f172a':color,
-    weight:seleccionada?4:2,
+    weight:seleccionada?5:3,
     fillColor:color,
-    fillOpacity:seleccionada ? .32 : .09,
-    opacity:seleccionada?1:.75,
+    fillOpacity:seleccionada ? .42 : (haySeleccion ? .04 : .18),
+    opacity:seleccionada?1:(haySeleccion ? .38 : .95),
     interactive:false
   };
 }
@@ -413,7 +412,7 @@ function actualizarZonaSeleccionada(acercar=true){
     return;
   }
   actualizarAvisoZona(`Zona del Grupo ${elegido} resaltada en el mapa. Coloca el desarrollo dentro de este polígono.`);
-  if(objetivo&&acercar) map.fitBounds(objetivo.getBounds(),{padding:[25,25],maxZoom:14});
+  if(objetivo&&acercar) map.flyToBounds(objetivo.getBounds(),{padding:[35,35],maxZoom:14,duration:1.15});
   if(marker){const p=marker.getLatLng();validarPuntoEnGrupo(p.lat,p.lng);}
 }
 
@@ -462,7 +461,21 @@ async function cargarZonasTrabajo(){
     geojsonGrupos=Array.isArray(data)&&data.length===1?data[0]:data;
     if(!geojsonGrupos||geojsonGrupos.type!=='FeatureCollection') throw new Error('La respuesta no contiene una capa GeoJSON válida');
     capaGrupos.clearLayers();
+    capaEtiquetasGrupos.clearLayers();
     capaGrupos.addData(geojsonGrupos);
+    geojsonGrupos.features.forEach(feature=>{
+      const grupo=grupoFeature(feature);
+      const lat=Number(feature?.properties?.centro_lat);
+      const lng=Number(feature?.properties?.centro_lon);
+      if(!grupo||!Number.isFinite(lat)||!Number.isFinite(lng)) return;
+      const icono=L.divIcon({
+        className:'grupo-zona-marcador',
+        html:`<span>Grupo ${escapeHtml(grupo)}</span>`,
+        iconSize:[72,24],
+        iconAnchor:[36,12]
+      });
+      L.marker([lat,lng],{icon:icono,interactive:false,pane:'tooltipPane'}).addTo(capaEtiquetasGrupos);
+    });
     actualizarZonaSeleccionada(false);
   }catch(e){
     console.error('Error cargando zonas de trabajo:',e);
