@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<!-- WebHedoni · Panel Maestro Docente V2.2 -->
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>WebHedoni · Panel Maestro Docente V2.2 Reporte General</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--navy:#12304a;--blue:#2563eb;--green:#15803d;--red:#b91c1c;--amber:#b45309;--bg:#f4f7fa;--line:#dbe2ea;--text:#1f2937;--muted:#64748b}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{background:var(--navy);color:#fff;padding:14px 18px}header h1{margin:0 0 4px;font-size:21px}header p{margin:0;color:#dbeafe;font-size:12px}
+#barraSesion{display:none;background:#e0f2fe;border-bottom:1px solid #bae6fd;padding:8px 16px;font-size:12px;color:#0c4a6e}
+#layout{display:grid;grid-template-columns:320px minmax(560px,1fr) 390px;min-height:calc(100vh - 101px)}
+.col{background:#fff;border-right:1px solid var(--line);overflow:auto}.col:last-child{border-right:0}.pad{padding:14px}
+.panelTitle{font-size:15px;color:#0f3b5d;margin:0 0 10px}.muted{font-size:11px;color:var(--muted)}
+input,select,textarea{width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px}textarea{min-height:88px;resize:vertical}
+button{border:0;border-radius:6px;padding:9px 11px;cursor:pointer;font-weight:700}.primary{background:var(--blue);color:#fff}.secondary{background:#e2e8f0;color:#1f2937}.success{background:var(--green);color:#fff}.danger{background:var(--red);color:#fff}.warning{background:#f59e0b;color:#fff}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:10px 0}.kpi{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 4px;text-align:center}.kpi strong{display:block;font-size:17px}.kpi span{font-size:9px;color:var(--muted)}
+#alumnosLista{border:1px solid var(--line);border-radius:8px;max-height:calc(100vh - 315px);min-height:240px;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable}.alumno{padding:9px 10px;border-bottom:1px solid #eef2f7;cursor:pointer}.alumno:last-child{border-bottom:0}.alumno:hover{background:#f8fafc}.alumno.activo{background:#eff6ff;border-left:4px solid var(--blue)}.alumnoNombre{font-size:12px;font-weight:700}.alumnoMeta{font-size:10px;color:var(--muted);margin-top:3px}.badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}.badge{font-size:9px;padding:3px 5px;border-radius:999px;background:#e2e8f0}.bPend{background:#fff7ed;color:#9a3412}.bVal{background:#dcfce7;color:#166534}.bRech{background:#fee2e2;color:#991b1b}
+#map{height:68vh;min-height:520px;border-bottom:1px solid var(--line)}
+.mapLegend{background:rgba(255,255,255,.96);padding:7px 9px;border:1px solid var(--line);border-radius:7px;box-shadow:0 1px 5px rgba(15,23,42,.18);font-size:10px;line-height:1.7}.mapLegend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;border:1px solid rgba(15,23,42,.35);vertical-align:-1px}
+#desarrollos{padding:12px}.desCard{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:9px;background:#fff}.desCard.sel{border:2px solid var(--blue);background:#f8fbff}.desHead{display:flex;justify-content:space-between;gap:8px}.desName{font-weight:700;font-size:13px}.desMeta{font-size:10px;color:var(--muted);line-height:1.5;margin-top:4px}.estado{font-size:10px;padding:4px 7px;border-radius:999px;height:fit-content}.pendiente{background:#fff7ed;color:#9a3412}.validado{background:#dcfce7;color:#166534}.rechazado{background:#fee2e2;color:#991b1b}
+.detailBox{border:1px solid var(--line);border-radius:8px;padding:11px;margin-bottom:12px;background:#fff}.detailGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.detailItem{background:#f8fafc;border-radius:6px;padding:7px}.detailItem b{display:block;font-size:10px;color:#475569}.detailItem span{font-size:12px}
+.actions{display:flex;gap:6px;flex-wrap:wrap}.actions button{flex:1;min-width:100px}.msg{display:none;padding:9px;border-radius:6px;font-size:12px;margin-bottom:10px}.ok{display:block;background:#dcfce7;color:#166534}.err{display:block;background:#fee2e2;color:#991b1b}.info{display:block;background:#e0f2fe;color:#075985}
+.log{font-size:10px;border-left:3px solid #cbd5e1;padding:7px 8px;margin-bottom:6px;background:#f8fafc}.log b{font-size:10px}.log time{color:var(--muted)}
+.reportBtn{width:100%;margin-top:10px;background:#0f766e;color:#fff}.reportOverlay{position:fixed;inset:0;z-index:6000;background:rgba(15,23,42,.82);display:none;align-items:flex-start;justify-content:center;padding:24px;overflow:auto}.reportCard{width:min(1180px,98vw);background:#fff;border-radius:12px;padding:20px;box-shadow:0 18px 45px rgba(15,23,42,.35)}.reportHead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:12px}.reportHead h2{margin:0;color:var(--navy)}.reportActions{display:flex;gap:7px;flex-wrap:wrap}.reportSummary{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:8px;margin:12px 0}.reportSummary div{background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:10px;text-align:center}.reportSummary strong{display:block;font-size:22px;color:#115e59}.reportSummary span{font-size:10px;color:#475569}.reportTableWrap{overflow:auto;max-height:65vh;border:1px solid var(--line);border-radius:8px}.reportTable{width:100%;border-collapse:collapse;font-size:11px}.reportTable th,.reportTable td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}.reportTable th{position:sticky;top:0;background:var(--navy);color:#fff;z-index:1}.reportTable tr:nth-child(even){background:#f8fafc}.reportList{margin:0;padding-left:18px}.reportList li{margin-bottom:4px}.reportStatus{font-size:9px;color:#64748b}.reportProgress{padding:12px;background:#e0f2fe;color:#075985;border-radius:7px;font-size:12px}
+#compuerta{position:fixed;inset:0;z-index:5000;background:rgba(15,23,42,.94);display:flex;align-items:center;justify-content:center;padding:18px}.card{width:min(560px,96vw);background:#fff;border-radius:12px;padding:22px}.card h2{margin:0 0 5px;color:var(--navy)}.card p{font-size:12px;line-height:1.5}.identity{display:none;background:#eff6ff;border:1px solid #bfdbfe;padding:10px;border-radius:7px;margin:10px 0;font-size:12px}.gateErr,.gateOk{display:none;padding:9px;border-radius:6px;margin-top:8px;font-size:12px}.gateErr{background:#fee2e2;color:#991b1b}.gateOk{background:#dcfce7;color:#166534}
+@media(max-width:1150px){#layout{grid-template-columns:320px 1fr}.rightCol{grid-column:1/-1;border-top:1px solid var(--line)}#map{height:62vh;min-height:470px}}
+@media(max-width:760px){#layout{display:block}.col{border-right:0;border-bottom:1px solid var(--line)}#map{height:58vh;min-height:400px}.kpis{grid-template-columns:repeat(2,1fr)}#alumnosLista{max-height:52vh}}
+@media print{body *{visibility:hidden!important}#reporteModal,#reporteModal *{visibility:visible!important}#reporteModal{display:block!important;position:absolute;inset:0;padding:0;background:#fff;overflow:visible}#reporteModal .reportCard{width:100%;box-shadow:none;padding:0}.noPrint{display:none!important}.reportTableWrap{max-height:none;overflow:visible;border:0}.reportTable th{position:static;background:#e2e8f0!important;color:#111!important}.reportTable{font-size:9pt}.reportCard{border-radius:0}}
+</style>
+</head>
+<body>
+<div id="compuerta">
+  <div class="card">
+    <h2>🔐 Panel Maestro Docente</h2>
+    <p><strong>WebHedoni · Control académico, revisión y financiamiento</strong><br>Acceso reservado al docente maestro. Esta V2.2 utiliza el identificador temporal; posteriormente se migrará a Supabase Auth.</p>
+    <label style="font-size:11px;font-weight:bold">Identificador docente *</label>
+    <input id="gateId" placeholder="DOCENTE_MAESTRO_01" autocomplete="off">
+    <button id="btnValidar" class="primary" style="width:100%;margin-top:8px">Verificar acceso docente</button>
+    <div id="gateErr" class="gateErr"></div><div id="gateOk" class="gateOk"></div>
+    <div id="gateIdentity" class="identity"><b id="gateNombre"></b><br><span id="gateCorreo"></span><br>Rol: <strong id="gateRol"></strong></div>
+    <label style="display:flex;gap:8px;align-items:flex-start;margin:12px 0;font-size:12px"><input type="checkbox" id="gateAcepta" style="width:auto;margin-top:2px"><span>Acepto que las operaciones de revisión queden registradas para control académico.</span></label>
+    <button id="btnEntrar" class="success" style="width:100%" disabled>Ingresar al Panel Maestro</button>
+  </div>
+</div>
+<div id="barraSesion">👨‍🏫 <strong id="sesionNombre"></strong> · Identificador: <strong id="sesionId"></strong> · Rol: <strong>DOCENTE MAESTRO</strong></div>
+<header><h1>🎓 WebHedoni · Panel Maestro Docente V2.2</h1><p>Seguimiento de alumnos, revisión de desarrollos, financiamiento, reportes y bitácora de actividad · Elaborado por el Dr. Rafael Valdivia L.</p></header>
+<div id="layout">
+  <aside class="col"><div class="pad">
+    <h2 class="panelTitle">Alumnos autorizados</h2>
+    <div id="msgLeft" class="msg"></div>
+    <input id="buscarAlumno" placeholder="Buscar por nombre, cuenta o correo">
+    <div class="kpis"><div class="kpi"><strong id="kAlumnos">0</strong><span>alumnos</span></div><div class="kpi"><strong id="kDes">0</strong><span>desarrollos</span></div><div class="kpi"><strong id="kPend">0</strong><span>pendientes</span></div><div class="kpi"><strong id="kVal">0</strong><span>validados</span></div><div class="kpi"><strong id="kRech">0</strong><span>rechazados</span></div></div>
+    <div id="alumnosLista"><div class="muted" style="padding:10px">Ingresa al panel para cargar la lista.</div></div>
+    <button id="btnReporteGeneral" class="reportBtn" disabled>📊 Generar reporte general</button>
+  </div></aside>
+
+  <main class="col">
+    <div id="map"></div>
+    <div id="desarrollos"><h2 class="panelTitle">Desarrollos del alumno</h2><div id="alumnoSeleccionado" class="muted">Selecciona un alumno.</div><button id="btnExportar" class="secondary" style="margin-top:9px" disabled>Exportar desarrollos a CSV</button><div id="listaDesarrollos" style="margin-top:10px"></div></div>
+  </main>
+
+  <section class="col rightCol"><div class="pad">
+    <h2 class="panelTitle">Revisión docente</h2><div id="msgRight" class="msg"></div>
+    <div id="detalleVacio" class="muted">Selecciona un desarrollo para revisar su información.</div>
+    <div id="detalle" style="display:none">
+      <div class="detailBox"><div id="detalleTitulo" style="font-size:15px;font-weight:700;margin-bottom:8px"></div><div id="detalleGrid" class="detailGrid"></div></div>
+      <div class="detailBox"><label style="font-size:11px;font-weight:bold">Estado de revisión</label><select id="estadoRevision" style="margin:5px 0 9px"><option value="pendiente">Pendiente</option><option value="validado">Validado</option><option value="rechazado">Rechazado</option></select><label style="font-size:11px;font-weight:bold">Observaciones del docente</label><textarea id="observaciones" placeholder="Comentarios de revisión, correcciones solicitadas o justificación de validación..."></textarea><div class="actions" style="margin-top:8px"><button id="btnGuardarRevision" class="primary">Guardar revisión</button><button id="btnCentrar" class="secondary">Ver en mapa</button></div></div>
+    </div>
+    <h2 class="panelTitle" style="margin-top:18px">Bitácora del alumno</h2><div id="logs" class="muted">Selecciona un alumno para consultar sus accesos.</div>
+  </div></section>
+</div>
+<div id="reporteModal" class="reportOverlay">
+  <section class="reportCard">
+    <div class="reportHead">
+      <div><h2>Reporte general de desarrollos subidos</h2><div id="reporteFecha" class="muted"></div></div>
+      <div class="reportActions noPrint"><button id="btnReporteCSV" class="secondary" disabled>Descargar CSV</button><button id="btnImprimirReporte" class="primary" disabled>Imprimir reporte</button><button id="btnCerrarReporte" class="danger">Cerrar</button></div>
+    </div>
+    <div id="reporteResumen" class="reportSummary"></div>
+    <div id="reporteContenido" class="reportProgress">Preparando reporte…</div>
+  </section>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const SUPABASE_URL='https://anyzwlksikreczclzkxc.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFueXp3bGtzaWtyZWN6Y2x6a3hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MTY0NTcsImV4cCI6MjA3NTA5MjQ1N30.sMs4-59Q7ajHLQHJYxVXAhwODlkSREfUNYiQ8BswMjQ';
+const $=id=>document.getElementById(id);
+let docente=null, alumnos=[], alumnoActual=null, desarrollos=[], desarrolloActual=null, markers=[], reporteGeneral=[];
+
+async function rpc(nombre,payload){const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${nombre}`,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(payload||{})});if(!r.ok)throw new Error(`${r.status}: ${await r.text()}`);const txt=await r.text();return txt?JSON.parse(txt):null}
+function msg(id,text,tipo='info'){const e=$(id);e.textContent=text;e.className=`msg ${tipo}`;e.style.display='block';setTimeout(()=>{e.style.display='none'},4500)}
+function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function money(v){const n=Number(v);return Number.isFinite(n)?n.toLocaleString('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0}):'—'}
+function fecha(v){if(!v)return '—';try{return new Date(v).toLocaleString('es-MX')}catch{return v}}
+
+const map=L.map('map').setView([19.4326,-99.1332],10.5);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+const COLORES_ESTADO={pendiente:'#f59e0b',validado:'#16a34a',rechazado:'#dc2626'};
+const leyenda=L.control({position:'bottomright'});leyenda.onAdd=()=>{const d=L.DomUtil.create('div','mapLegend');d.innerHTML='<b>Estado de revisión</b><br><i style="background:#f59e0b"></i>Pendiente<br><i style="background:#16a34a"></i>Validado<br><i style="background:#dc2626"></i>Rechazado';return d};leyenda.addTo(map);
+function limpiarMarkers(){markers.forEach(m=>map.removeLayer(m));markers=[]}
+function estadoClase(e){return ['pendiente','validado','rechazado'].includes(e)?e:'pendiente'}
+function dibujarDesarrollos(){limpiarMarkers();const bounds=[];for(const d of desarrollos){const lat=Number(d.latitud),lon=Number(d.longitud);if(!Number.isFinite(lat)||!Number.isFinite(lon))continue;const estado=estadoClase(d.estado_revision),color=COLORES_ESTADO[estado];const m=L.circleMarker([lat,lon],{radius:8,weight:2,color:'#fff',fillColor:color,fillOpacity:.95}).addTo(map).bindPopup(`<b>${esc(d.nombre_desarrollo||'Desarrollo')}</b><br>${esc(d.direccion||'')}<br><b>Estado:</b> ${esc(estado)}`);m.desarrolloId=Number(d.id);m.on('click',()=>seleccionarDesarrollo(d.id));markers.push(m);bounds.push([lat,lon])}if(bounds.length)map.fitBounds(bounds,{padding:[32,32],maxZoom:14})}
+
+async function validarDocente(){const id=$('gateId').value.trim();$('gateErr').style.display='none';$('gateOk').style.display='none';$('gateIdentity').style.display='none';$('btnEntrar').disabled=true;docente=null;if(!id){$('gateErr').textContent='Escribe el identificador docente.';$('gateErr').style.display='block';return}try{$('btnValidar').disabled=true;$('btnValidar').textContent='Verificando...';const data=await rpc('validar_usuario_portal',{p_identificador:id});if(!Array.isArray(data)||!data.length){throw new Error('Identificador no autorizado o inactivo.')}const u=data[0];if(u.rol!=='docente_maestro'){throw new Error(`El usuario tiene rol “${u.rol||'sin rol'}”; se requiere docente_maestro.`)}docente=u;$('gateNombre').textContent=u.nombre||'';$('gateCorreo').textContent=u.correo||'';$('gateRol').textContent=u.rol;$('gateIdentity').style.display='block';$('gateOk').textContent='✅ Acceso docente validado.';$('gateOk').style.display='block';$('btnEntrar').disabled=!$('gateAcepta').checked}catch(e){$('gateErr').textContent='⛔ '+e.message;$('gateErr').style.display='block'}finally{$('btnValidar').disabled=false;$('btnValidar').textContent='Verificar acceso docente'}}
+$('btnValidar').onclick=validarDocente;$('gateId').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();validarDocente()}});$('gateAcepta').onchange=()=>{$('btnEntrar').disabled=!(docente&&$('gateAcepta').checked)};
+$('btnEntrar').onclick=async()=>{if(!docente)return;$('compuerta').style.display='none';$('barraSesion').style.display='block';$('sesionNombre').textContent=docente.nombre;$('sesionId').textContent=docente.identificador;setTimeout(()=>map.invalidateSize(),100);await cargarAlumnos()};
+
+async function cargarAlumnos(){try{msg('msgLeft','Cargando alumnos…','info');const data=await rpc('panel_listar_alumnos',{p_docente:docente.identificador});alumnos=Array.isArray(data)?data:[];$('btnReporteGeneral').disabled=!alumnos.length;actualizarKpis();renderAlumnos()}catch(e){$('btnReporteGeneral').disabled=true;msg('msgLeft','❌ '+e.message,'err')}}
+function actualizarKpis(){const sum=(k)=>alumnos.reduce((a,x)=>a+Number(x[k]||0),0);$('kAlumnos').textContent=alumnos.length;$('kDes').textContent=sum('total_desarrollos');$('kPend').textContent=sum('pendientes');$('kVal').textContent=sum('validados');$('kRech').textContent=sum('rechazados')}
+function renderAlumnos(){const q=$('buscarAlumno').value.trim().toLowerCase();const rows=alumnos.filter(a=>[a.identificador,a.nombre,a.correo,a.grupo].join(' ').toLowerCase().includes(q));$('alumnosLista').innerHTML=rows.length?rows.map(a=>`<div class="alumno ${alumnoActual?.identificador===a.identificador?'activo':''}" data-id="${esc(a.identificador)}"><div class="alumnoNombre">${esc(a.nombre)}</div><div class="alumnoMeta">${esc(a.identificador)} · Grupo ${esc(a.grupo)}<br>Último acceso: ${esc(fecha(a.ultimo_acceso))}</div><div class="badges"><span class="badge">${Number(a.total_desarrollos||0)} total</span><span class="badge bPend">${Number(a.pendientes||0)} pendientes</span><span class="badge bVal">${Number(a.validados||0)} validados</span><span class="badge bRech">${Number(a.rechazados||0)} rechazados</span></div></div>`).join(''):'<div class="muted" style="padding:10px">Sin coincidencias.</div>';document.querySelectorAll('.alumno').forEach(e=>e.onclick=()=>seleccionarAlumno(e.dataset.id))}
+$('buscarAlumno').oninput=renderAlumnos;
+async function seleccionarAlumno(id){alumnoActual=alumnos.find(a=>a.identificador===id);desarrolloActual=null;renderAlumnos();$('alumnoSeleccionado').innerHTML=`<strong>${esc(alumnoActual.nombre)}</strong> · ${esc(alumnoActual.identificador)} · ${esc(alumnoActual.correo||'')}`;$('detalle').style.display='none';$('detalleVacio').style.display='block';$('btnExportar').disabled=true;try{const [d,l]=await Promise.all([rpc('panel_desarrollos_alumno_v2',{p_docente:docente.identificador,p_alumno:id}),rpc('panel_accesos_alumno',{p_docente:docente.identificador,p_alumno:id})]);desarrollos=Array.isArray(d)?d:[];$('btnExportar').disabled=!desarrollos.length;renderDesarrollos();dibujarDesarrollos();renderLogs(Array.isArray(l)?l:[])}catch(e){msg('msgRight','❌ '+e.message,'err')}}
+function etiquetaInstitucion(d){return d.institucion_credito==='OTRO'&&d.otra_institucion_credito?`OTRO · ${d.otra_institucion_credito}`:(d.institucion_credito||'—')}
+function renderDesarrollos(){if(!desarrollos.length){$('listaDesarrollos').innerHTML='<div class="muted">Este alumno aún no tiene desarrollos vinculados.</div>';return}$('listaDesarrollos').innerHTML=desarrollos.map(d=>`<div class="desCard ${desarrolloActual?.id===d.id?'sel':''}" data-did="${d.id}"><div class="desHead"><div class="desName">#${d.id} · ${esc(d.nombre_desarrollo||'Sin nombre')}</div><span class="estado ${estadoClase(d.estado_revision)}">${esc(d.estado_revision||'pendiente')}</span></div><div class="desMeta">${esc(d.direccion||'Sin dirección')}<br>${esc(d.colonia||'')} · ${esc(d.alcaldia||'')}<br>${money(d.precio_total)} · ${esc(d.area_total||'—')} m² · Enganche: ${money(d.enganche)} · ${esc(etiquetaInstitucion(d))}<br>Alta: ${esc(fecha(d.fecha_alta))}</div></div>`).join('');document.querySelectorAll('.desCard').forEach(e=>e.onclick=()=>seleccionarDesarrollo(Number(e.dataset.did)))}
+function seleccionarDesarrollo(id){const d=desarrollos.find(x=>Number(x.id)===Number(id));if(!d)return;desarrolloActual=d;renderDesarrollos();$('detalleVacio').style.display='none';$('detalle').style.display='block';$('detalleTitulo').textContent=`#${d.id} · ${d.nombre_desarrollo||'Desarrollo'}`;const items=[['Dirección',d.direccion],['Alcaldía',d.alcaldia],['Colonia',d.colonia],['Precio total',money(d.precio_total)],['Precio/m²',money(d.precio_m2)],['Enganche',money(d.enganche)],['Enganche (%)',d.porcentaje_enganche!=null?`${Number(d.porcentaje_enganche).toFixed(2)}%`:'—'],['Monto por financiar',money(d.monto_financiar)],['Institución',etiquetaInstitucion(d)],['Área total',d.area_total?`${d.area_total} m²`:'—'],['Recámaras',d.num_recamaras],['Baños',d.num_banos],['Niveles',d.niveles],['Promotor',d.promotor],['Tipo',d.tipo_desarrollo],['Fecha alta',fecha(d.fecha_alta)]];$('detalleGrid').innerHTML=items.map(([k,v])=>`<div class="detailItem"><b>${esc(k)}</b><span>${esc(v??'—')}</span></div>`).join('');$('estadoRevision').value=estadoClase(d.estado_revision);$('observaciones').value=d.observaciones_revision||'';centrarActual(false)}
+
+function csvCelda(v){let s=String(v??'');if(/^[=+\-@]/.test(s))s="'"+s;return `"${s.replace(/"/g,'""')}"`}
+function exportarCSV(){if(!alumnoActual||!desarrollos.length)return;const columnas=[['id','ID'],['nombre_desarrollo','Desarrollo'],['direccion','Dirección'],['alcaldia','Alcaldía'],['colonia','Colonia'],['precio_total','Precio total'],['enganche','Enganche'],['porcentaje_enganche','Enganche (%)'],['monto_financiar','Monto por financiar'],['institucion_credito','Institución'],['otra_institucion_credito','Otra institución'],['area_total','Área total m²'],['estado_revision','Estado de revisión'],['observaciones_revision','Observaciones'],['fecha_alta','Fecha de alta']];const filas=[columnas.map(c=>csvCelda(c[1])).join(',')].concat(desarrollos.map(d=>columnas.map(c=>csvCelda(d[c[0]])).join(',')));const blob=new Blob(['\ufeff'+filas.join('\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`webhedoni_${alumnoActual.identificador}_financiamiento.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
+$('btnExportar').onclick=exportarCSV;
+function centrarActual(open=true){if(!desarrolloActual)return;const lat=Number(desarrolloActual.latitud),lon=Number(desarrolloActual.longitud);if(Number.isFinite(lat)&&Number.isFinite(lon)){map.setView([lat,lon],16);if(open){const marker=markers.find(m=>m.desarrolloId===Number(desarrolloActual.id));if(marker)marker.openPopup()}}}
+$('btnCentrar').onclick=()=>centrarActual(true);
+$('btnGuardarRevision').onclick=async()=>{if(!desarrolloActual)return;const desarrolloId=Number(desarrolloActual.id),alumnoId=alumnoActual.identificador,estado=$('estadoRevision').value,obs=$('observaciones').value.trim();if(estado==='rechazado'&&!obs){msg('msgRight','Para rechazar una captura escribe una observación que explique la corrección necesaria.','err');return}try{$('btnGuardarRevision').disabled=true;$('btnGuardarRevision').textContent='Guardando…';await rpc('panel_revisar_desarrollo',{p_docente:docente.identificador,p_desarrollo_id:desarrolloId,p_estado:estado,p_observaciones:obs||null});msg('msgRight',`✅ Desarrollo #${desarrolloId} actualizado a “${estado}”.`,'ok');await cargarAlumnos();await seleccionarAlumno(alumnoId);const actualizado=desarrollos.find(x=>Number(x.id)===desarrolloId);if(actualizado)seleccionarDesarrollo(actualizado.id)}catch(e){msg('msgRight','❌ '+e.message,'err')}finally{$('btnGuardarRevision').disabled=false;$('btnGuardarRevision').textContent='Guardar revisión'}};
+function renderLogs(logs){$('logs').innerHTML=logs.length?logs.map(x=>`<div class="log"><b>${esc(x.evento||'EVENTO')}</b> · <time>${esc(fecha(x.fecha_hora))}</time><br>${esc(x.detalle||'')}</div>`).join(''):'<div class="muted">No hay eventos registrados para este alumno.</div>'}
+
+const ROMANOS=['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+function ordenarAlumnosReporte(lista){return [...lista].sort((a,b)=>{const ga=ROMANOS.indexOf(String(a.grupo||'').toUpperCase()),gb=ROMANOS.indexOf(String(b.grupo||'').toUpperCase());const oa=ga<0?99:ga,ob=gb<0?99:gb;return oa-ob||String(a.nombre||'').localeCompare(String(b.nombre||''),'es')})}
+function abrirReporte(){ $('reporteModal').style.display='flex';document.body.style.overflow='hidden' }
+function cerrarReporte(){ $('reporteModal').style.display='none';document.body.style.overflow='' }
+function estadoEtiqueta(v){const e=estadoClase(v);return e.charAt(0).toUpperCase()+e.slice(1)}
+async function generarReporteGeneral(){
+  if(!docente||!alumnos.length)return;
+  abrirReporte();reporteGeneral=[];$('btnReporteGeneral').disabled=true;$('btnReporteCSV').disabled=true;$('btnImprimirReporte').disabled=true;
+  $('reporteFecha').textContent=`Generado: ${new Date().toLocaleString('es-MX')} · Docente: ${docente.nombre||''}`;
+  $('reporteResumen').innerHTML='';$('reporteContenido').className='reportProgress';$('reporteContenido').textContent='Consultando desarrollos de los alumnos…';
+  const ordenados=ordenarAlumnosReporte(alumnos),resultados=new Array(ordenados.length);let siguiente=0,completados=0;
+  async function trabajador(){while(true){const i=siguiente++;if(i>=ordenados.length)return;const a=ordenados[i];try{const d=await rpc('panel_desarrollos_alumno_v2',{p_docente:docente.identificador,p_alumno:a.identificador});resultados[i]={alumno:a,desarrollos:Array.isArray(d)?d:[],error:null}}catch(e){resultados[i]={alumno:a,desarrollos:[],error:e.message}}completados++;$('reporteContenido').textContent=`Consultando alumnos: ${completados} de ${ordenados.length}…`}}
+  try{await Promise.all(Array.from({length:Math.min(5,ordenados.length)},()=>trabajador()));reporteGeneral=resultados;renderReporteGeneral();$('btnReporteCSV').disabled=false;$('btnImprimirReporte').disabled=false}catch(e){$('reporteContenido').className='msg err';$('reporteContenido').textContent='❌ No fue posible generar el reporte: '+e.message}finally{$('btnReporteGeneral').disabled=false}
+}
+function renderReporteGeneral(){
+  const totalDes=reporteGeneral.reduce((s,r)=>s+r.desarrollos.length,0),conCaptura=reporteGeneral.filter(r=>r.desarrollos.length).length,conError=reporteGeneral.filter(r=>r.error).length;
+  $('reporteResumen').innerHTML=`<div><strong>${reporteGeneral.length}</strong><span>alumnos autorizados</span></div><div><strong>${conCaptura}</strong><span>alumnos con desarrollos</span></div><div><strong>${totalDes}</strong><span>desarrollos subidos</span></div>`;
+  const filas=reporteGeneral.map((r,i)=>{const a=r.alumno;let lista;if(r.error)lista=`<span style="color:#b91c1c">No se pudo consultar: ${esc(r.error)}</span>`;else if(!r.desarrollos.length)lista='<span class="muted">Sin desarrollos subidos</span>';else lista=`<ol class="reportList">${r.desarrollos.map(d=>`<li><strong>${esc(d.nombre_desarrollo||'Sin nombre')}</strong>${d.direccion?` — ${esc(d.direccion)}`:''}<div class="reportStatus">ID ${esc(d.id)} · ${esc(estadoEtiqueta(d.estado_revision))}</div></li>`).join('')}</ol>`;return `<tr><td>${i+1}</td><td><strong>${esc(a.nombre||'')}</strong></td><td>${esc(a.identificador||'')}</td><td>${esc(a.grupo||'—')}</td><td><strong>${r.desarrollos.length}</strong></td><td>${lista}</td></tr>`}).join('');
+  $('reporteContenido').className='reportTableWrap';$('reporteContenido').innerHTML=`<table class="reportTable"><thead><tr><th>No.</th><th>Alumno</th><th>Número de cuenta</th><th>Grupo</th><th>Total</th><th>Desarrollos subidos</th></tr></thead><tbody>${filas}</tbody></table>${conError?`<p style="color:#b91c1c;padding:8px">Advertencia: ${conError} alumno(s) no pudieron consultarse.</p>`:''}`;
+}
+function descargarReporteCSV(){
+  if(!reporteGeneral.length)return;const encabezado=['Alumno','Número de cuenta','Grupo','Total del alumno','ID desarrollo','Desarrollo','Dirección','Estado'];const filas=[encabezado.map(csvCelda).join(',')];
+  for(const r of reporteGeneral){if(!r.desarrollos.length)filas.push([r.alumno.nombre,r.alumno.identificador,r.alumno.grupo,0,'','','',r.error?'ERROR DE CONSULTA':'Sin desarrollos'].map(csvCelda).join(','));else for(const d of r.desarrollos)filas.push([r.alumno.nombre,r.alumno.identificador,r.alumno.grupo,r.desarrollos.length,d.id,d.nombre_desarrollo,d.direccion,estadoEtiqueta(d.estado_revision)].map(csvCelda).join(','))}
+  const blob=new Blob(['\ufeff'+filas.join('\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`webhedoni_reporte_general_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)
+}
+$('btnReporteGeneral').onclick=generarReporteGeneral;$('btnCerrarReporte').onclick=cerrarReporte;$('btnReporteCSV').onclick=descargarReporteCSV;$('btnImprimirReporte').onclick=()=>window.print();$('reporteModal').onclick=e=>{if(e.target===$('reporteModal'))cerrarReporte()};document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('reporteModal').style.display==='flex')cerrarReporte()});
+</script>
+</body>
+</html>
